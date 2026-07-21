@@ -46,6 +46,7 @@ enum ConfigStore {
         lines.append("[ui]")
         lines.append("show_floating_bubble = \(config.showFloatingBubble)")
         lines.append("bubble_position = \"\(config.bubblePosition.rawValue)\"")
+        lines.append("show_preview_before_injection = \(config.showPreviewBeforeInjection)")
         lines.append("")
         return lines.joined(separator: "\n")
     }

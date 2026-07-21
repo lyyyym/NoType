@@ -90,11 +90,12 @@ extension ConfigLoader {
             asr: asr,
             llm: llm,
             showFloatingBubble: ui.showFloatingBubble,
-            bubblePosition: ui.bubblePosition
+            bubblePosition: ui.bubblePosition,
+            showPreviewBeforeInjection: ui.showPreviewBeforeInjection
         )
     }
 
-    static func buildUI(_ fields: [String: String]?) throws -> (showFloatingBubble: Bool, bubblePosition: Configuration.BubblePosition) {
+    static func buildUI(_ fields: [String: String]?) throws -> (showFloatingBubble: Bool, bubblePosition: Configuration.BubblePosition, showPreviewBeforeInjection: Bool) {
         let fields = fields ?? [:]
         let showFloatingBubble: Bool
         if let raw = fields["show_floating_bubble"] {
@@ -110,7 +111,13 @@ extension ConfigLoader {
         } else {
             bubblePosition = .cursor
         }
-        return (showFloatingBubble, bubblePosition)
+        let showPreviewBeforeInjection: Bool
+        if let raw = fields["show_preview_before_injection"] {
+            showPreviewBeforeInjection = (unwrapString(raw).lowercased() == "true")
+        } else {
+            showPreviewBeforeInjection = false
+        }
+        return (showFloatingBubble, bubblePosition, showPreviewBeforeInjection)
     }
 
     static func buildShortcut(_ fields: [String: String]?) throws -> Configuration.Shortcut {
