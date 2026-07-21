@@ -2,7 +2,7 @@ import AppKit
 import Foundation
 
 /// Orchestrates the dictation flow:
-/// shortcut press → record → ASR → LLM polish (fallback to raw) → inject.
+/// shortcut press → record → ASR → LLM polish (mode-aware; fallback to raw) → inject.
 ///
 /// Runs on the main actor because it drives AppKit/AVFoundation/CGEvent.
 @MainActor
@@ -18,9 +18,12 @@ final class DictationController {
     private let history: HistoryStore
     private let stats: StatsStore
     private let dictionary: DictionaryStore
+    private let modes: ModeStore
     private let bubble: FloatingBubbleWindow?
 
     private var session: RecordingSession?
+    /// The mode selected by the most recent shortcut press; drives polishing.
+    private var selectedMode: PolishingMode?
 
     init(config: Configuration,
          status: StatusBarController,
@@ -32,6 +35,7 @@ final class DictationController {
          history: HistoryStore? = nil,
          stats: StatsStore? = nil,
          dictionary: DictionaryStore? = nil,
+         modes: ModeStore? = nil,
          bubble: FloatingBubbleWindow? = nil) {
         self.config = config
         self.status = status
@@ -43,6 +47,13 @@ final class DictationController {
         self.history = history ?? HistoryStore()
         self.stats = stats ?? StatsStore()
         self.dictionary = dictionary ?? DictionaryStore()
+        if let modes = modes {
+            self.modes = modes
+        } else {
+            let store = ModeStore()
+            store.load(legacyEverydayShortcut: config.shortcut)
+            self.modes = store
+        }
         self.bubble = bubble ?? (config.showFloatingBubble ? FloatingBubbleWindow() : nil)
 
         self.recorder.onFailure = { [weak self] detail in
@@ -52,11 +63,16 @@ final class DictationController {
 
     // MARK: - Shortcut callbacks
 
-    func didPressShortcut() {
+    func didPressShortcut(modeID: UUID) {
+        guard let mode = modes.mode(for: modeID) else {
+            fail(with: "No mode found for this shortcut.")
+            return
+        }
+        selectedMode = mode
         startRecording()
     }
 
-    func didReleaseShortcut() {
+    func didReleaseShortcut(modeID: UUID) {
         stopAndProcess()
     }
 
@@ -67,7 +83,7 @@ final class DictationController {
         let newSession = RecordingSession(status: .idle)
         _ = newSession.transition(to: .recording)
         session = newSession
-        status.update(.recording)
+        status.update(.recording, modeName: selectedMode?.name)
         bubble?.show(position: config.bubblePosition)
 
         do {
@@ -94,14 +110,16 @@ final class DictationController {
             return
         }
 
+        let mode = selectedMode
         Task { [weak self, asr, llm, injector, status] in
             guard let self = self else { return }
-            await self.process(wav: wav, session: session, asr: asr, llm: llm, injector: injector, status: status)
+            await self.process(wav: wav, session: session, mode: mode, asr: asr, llm: llm, injector: injector, status: status)
         }
     }
 
     private func process(wav: Data,
                          session: RecordingSession,
+                         mode: PolishingMode?,
                          asr: ASRClient,
                          llm: LLMClient,
                          injector: KeyboardInjector,
@@ -116,12 +134,17 @@ final class DictationController {
         }
         session.setRawTranscription(rawText)
 
-        // 2. LLM polish, fall back to raw text on failure (FR-013).
+        // 2. LLM polish using the selected mode's instruction (fall back to raw on failure).
         var finalText = rawText
         var usedFallback = false
         let dictionaryHint = dictionary.promptHint()
+        let instruction = mode?.instruction ?? ""
+        let outputLanguage = mode?.outputLanguage
         do {
-            finalText = try await llm.polish(transcript: rawText, dictionaryHint: dictionaryHint)
+            finalText = try await llm.polish(transcript: rawText,
+                                             dictionaryHint: dictionaryHint,
+                                             systemInstruction: instruction,
+                                             outputLanguage: outputLanguage)
         } catch {
             usedFallback = true
             finalText = PolishPrompt.normalize(rawText)
@@ -139,6 +162,7 @@ final class DictationController {
             history.append(entry)
             stats.record(words: entry.wordCount)
             self.session = nil
+            self.selectedMode = nil
         } catch {
             self.fail(with: error.localizedDescription)
         }
@@ -153,5 +177,6 @@ final class DictationController {
         status.showError(detail)
         recorder.stop()
         session = nil
+        selectedMode = nil
     }
 }

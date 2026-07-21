@@ -33,6 +33,14 @@ final class StatusBarController {
             case .error: return "⚠️"
             }
         }
+
+        /// Title with an optional mode label appended (used while recording).
+        func title(modeName: String?) -> String {
+            guard let modeName = modeName?.trimmingCharacters(in: .whitespacesAndNewlines), !modeName.isEmpty else {
+                return title
+            }
+            return "\(title) \(modeName)"
+        }
     }
 
     init() {
@@ -43,10 +51,11 @@ final class StatusBarController {
         rebuildMenu()
     }
 
-    func update(_ state: State) {
+    func update(_ state: State, modeName: String? = nil) {
         self.state = state
+        let title = state.title(modeName: modeName)
         DispatchQueue.main.async { [weak self] in
-            self?.statusItem.button?.title = state.title
+            self?.statusItem.button?.title = title
         }
         if state == .success || state == .error {
             // Brief completion signal, then return to idle.
