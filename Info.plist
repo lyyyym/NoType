@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Hide the app from the Dock (menu-bar only). Equivalent to the code call setActivationPolicy(.accessory). -->
+    <key>LSUIElement</key>
+    <true/>
+    <!-- Microphone usage description shown in the system permission prompt. -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>NoType records your voice to transcribe it into text at the current cursor position.</string>
+</dict>
+</plist>

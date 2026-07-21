@@ -1,0 +1,101 @@
+import AppKit
+
+/// Manages the macOS menu-bar status item and its menu.
+///
+/// See `contracts` and `spec.md` User Story 3.
+final class StatusBarController {
+
+    private let statusItem: NSStatusItem
+    private var state: State = .idle
+
+    enum State {
+        case idle
+        case recording
+        case processing
+        case success
+        case error
+
+        var title: String {
+            switch self {
+            case .idle: return "⚪"
+            case .recording: return "🔴"
+            case .processing: return "⏳"
+            case .success: return "✅"
+            case .error: return "⚠️"
+            }
+        }
+    }
+
+    init() {
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let button = statusItem.button {
+            button.title = State.idle.title
+        }
+        rebuildMenu()
+    }
+
+    func update(_ state: State) {
+        self.state = state
+        DispatchQueue.main.async { [weak self] in
+            self?.statusItem.button?.title = state.title
+        }
+        if state == .success || state == .error {
+            // Brief completion signal, then return to idle.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                guard let self = self else { return }
+                if self.state == .success || self.state == .error {
+                    self.update(.idle)
+                }
+            }
+        }
+    }
+
+    private func rebuildMenu() {
+        let menu = NSMenu()
+        menu.addItem(withTitle: "NoType", action: nil, keyEquivalent: "")
+        menu.addItem(.separator())
+
+        let configItem = menu.addItem(withTitle: "Open config folder", action: #selector(openConfigFolder), keyEquivalent: "")
+        configItem.target = self
+
+        let accessibilityItem = menu.addItem(withTitle: "Request Accessibility…", action: #selector(requestAccessibility), keyEquivalent: "")
+        accessibilityItem.target = self
+
+        menu.addItem(.separator())
+        let quitItem = menu.addItem(withTitle: "Quit NoType", action: #selector(quit), keyEquivalent: "q")
+        quitItem.target = self
+
+        statusItem.menu = menu
+    }
+
+    @objc private func openConfigFolder() {
+        do {
+            let url = try ConfigLoader.defaultPath()
+            let dir = url.deletingLastPathComponent()
+            NSWorkspace.shared.open(dir)
+        } catch {
+            update(.error)
+        }
+    }
+
+    func showError(_ message: String) {
+        DispatchQueue.main.async { [weak self] in
+            NSApp.activate(ignoringOtherApps: true)
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "NoType"
+            alert.informativeText = message
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+            self?.update(.idle)
+        }
+    }
+
+    @objc private func requestAccessibility() {
+        _ = KeyboardInjector.isTrusted(prompt: true)
+    }
+
+    @objc private func quit() {
+        NSApp.terminate(nil)
+    }
+}
