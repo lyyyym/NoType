@@ -11,7 +11,7 @@ final class OnboardingWindowController: NSWindowController {
     private var pages: [NSView] = []
     private let nextButton = NSButton(title: "Next", target: nil, action: nil)
     private let backButton = NSButton(title: "Back", target: nil, action: nil)
-    private let container = NSBox()
+    private let container = NSView()
     private let pageLabel = NSTextField(labelWithString: "")
     private var configuration: Configuration
 
@@ -56,8 +56,6 @@ final class OnboardingWindowController: NSWindowController {
     private func setupUI() {
         guard let contentView = window?.contentView else { return }
 
-        container.boxType = .custom
-        container.isTransparent = true
         container.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(container)
 
@@ -99,7 +97,7 @@ final class OnboardingWindowController: NSWindowController {
 
     private func showPage(_ index: Int) {
         currentPage = index
-        container.contentView?.removeFromSuperview()
+        container.subviews.forEach { $0.removeFromSuperview() }
         let page = pages[index]
         page.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(page)
