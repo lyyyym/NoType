@@ -117,13 +117,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func openSettings() {
         guard let config = configuration else { return }
-        let controller = SettingsWindowController(configuration: config)
+        let controller = SettingsWindowController(configuration: config, modeStore: modeStore)
         controller.onSave = { [weak self] updated in
             self?.configuration = updated
             self?.reloadShortcut(configuration: updated)
         }
+        controller.onModesChanged = { [weak self] in
+            // Modes changed in-place on the shared store; just rebuild the shortcut monitor.
+            self?.rebuildShortcutsOnly()
+        }
         self.settingsWindow = controller
         controller.showWindow(nil)
+    }
+
+    /// Rebuilds the shortcut monitor from the current modes without recreating the
+    /// dictation controller (used after add/edit/delete of a mode).
+    private func rebuildShortcutsOnly() {
+        guard let controller = dictation else { return }
+        let monitor = makeShortcutMonitor(controller: controller)
+        _ = monitor.start()
+        self.shortcut = monitor
     }
 
     /// Rebuilds the shortcut monitor (from the current modes) and the dictation
