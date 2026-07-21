@@ -18,7 +18,7 @@ final class OnboardingWindowController: NSWindowController {
     private let onboardingStore = OnboardingStore()
     private var shortcutEditor: ShortcutEditorView?
     private var asrFields: ServiceConfigFields?
-    private var llmFields: ServiceConfigFields?
+    private var llmFields: LLMConfigFields?
 
     init(configuration: Configuration) {
         self.configuration = configuration
@@ -169,10 +169,10 @@ final class OnboardingWindowController: NSWindowController {
         let shortcut = ShortcutEditorView(configuration: configuration.shortcut)
         self.shortcutEditor = shortcut
 
-        let asr = ServiceConfigFields(title: "ASR", baseURL: configuration.asr.baseURL, apiKey: configuration.asr.apiKey, model: configuration.asr.model)
+        let asr = ServiceConfigFields(title: "ASR", config: configuration.asr)
         self.asrFields = asr
 
-        let llm = ServiceConfigFields(title: "LLM", baseURL: configuration.llm.baseURL, apiKey: configuration.llm.apiKey, model: configuration.llm.model)
+        let llm = LLMConfigFields(configuration: configuration.llm)
         self.llmFields = llm
 
         let stack = NSStackView(views: [
@@ -245,78 +245,5 @@ private enum OnboardingStoreMutator {
         var state = state
         state.accessibilityPermissionRequested = true
         return state
-    }
-}
-
-// MARK: - Reusable form views
-
-@MainActor
-private final class ShortcutEditorView {
-    let keyField = NSTextField(string: "")
-    let modifiersField = NSTextField(string: "")
-    let view: NSView
-
-    var shortcut: Configuration.Shortcut? {
-        let key = keyField.stringValue.trimmingCharacters(in: .whitespaces)
-        let raw = modifiersField.stringValue
-        let modifiers = raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
-        guard !key.isEmpty, !modifiers.isEmpty else { return nil }
-        return Configuration.Shortcut(key: key, modifiers: modifiers)
-    }
-
-    init(configuration: Configuration.Shortcut) {
-        keyField.stringValue = configuration.key
-        modifiersField.stringValue = configuration.modifiers.joined(separator: ", ")
-        let stack = NSStackView(views: [
-            NSTextField(labelWithString: "Shortcut key:"),
-            keyField,
-            NSTextField(labelWithString: "Modifiers (comma-separated, e.g. command, shift):"),
-            modifiersField
-        ])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 4
-        view = stack
-    }
-}
-
-@MainActor
-private final class ServiceConfigFields {
-    let title: String
-    let baseURLField = NSTextField(string: "")
-    let apiKeyField = NSTextField(string: "")
-    let modelField = NSTextField(string: "")
-    let view: NSView
-
-    var serviceConfig: Configuration.ServiceConfig? {
-        let baseURL = baseURLField.stringValue.trimmingCharacters(in: .whitespaces)
-        let apiKey = apiKeyField.stringValue.trimmingCharacters(in: .whitespaces)
-        let model = modelField.stringValue.trimmingCharacters(in: .whitespaces)
-        guard !baseURL.isEmpty, !apiKey.isEmpty, !model.isEmpty else { return nil }
-        return Configuration.ServiceConfig(baseURL: baseURL, apiKey: apiKey, model: model)
-    }
-
-    var llmConfig: Configuration.LLMConfig? {
-        guard let service = serviceConfig else { return nil }
-        return Configuration.LLMConfig(baseURL: service.baseURL, apiKey: service.apiKey, model: service.model, temperature: 0.0, maxTokens: 4096)
-    }
-
-    init(title: String, baseURL: String, apiKey: String, model: String) {
-        self.title = title
-        baseURLField.stringValue = baseURL
-        apiKeyField.stringValue = apiKey
-        modelField.stringValue = model
-        let stack = NSStackView(views: [
-            NSTextField(labelWithString: "\(title) base URL:"),
-            baseURLField,
-            NSTextField(labelWithString: "\(title) API key:"),
-            apiKeyField,
-            NSTextField(labelWithString: "\(title) model:"),
-            modelField
-        ])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 4
-        view = stack
     }
 }
