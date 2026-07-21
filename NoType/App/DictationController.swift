@@ -20,10 +20,13 @@ final class DictationController {
     private let dictionary: DictionaryStore
     private let modes: ModeStore
     private let bubble: FloatingBubbleWindow?
+    private let previewController: PreviewWindowController?
 
     private var session: RecordingSession?
     /// The mode selected by the most recent shortcut press; drives polishing.
     private var selectedMode: PolishingMode?
+    /// The app that was frontmost when recording started; re-activated on preview confirm.
+    private var targetApp: FrontmostApp?
 
     init(config: Configuration,
          status: StatusBarController,
@@ -36,7 +39,8 @@ final class DictationController {
          stats: StatsStore? = nil,
          dictionary: DictionaryStore? = nil,
          modes: ModeStore? = nil,
-         bubble: FloatingBubbleWindow? = nil) {
+         bubble: FloatingBubbleWindow? = nil,
+         preview: PreviewWindowController? = nil) {
         self.config = config
         self.status = status
         self.buffer = buffer
@@ -55,6 +59,7 @@ final class DictationController {
             self.modes = store
         }
         self.bubble = bubble ?? (config.showFloatingBubble ? FloatingBubbleWindow() : nil)
+        self.previewController = preview ?? (config.showPreviewBeforeInjection ? PreviewWindowController() : nil)
 
         self.recorder.onFailure = { [weak self] detail in
             Task { @MainActor in self?.fail(with: detail) }
@@ -69,6 +74,8 @@ final class DictationController {
             return
         }
         selectedMode = mode
+        // Capture the target app before anything (e.g. a preview panel) takes focus.
+        targetApp = FrontmostApp.current
         startRecording()
     }
 
@@ -136,7 +143,6 @@ final class DictationController {
 
         // 2. LLM polish using the selected mode's instruction (fall back to raw on failure).
         var finalText = rawText
-        var usedFallback = false
         let dictionaryHint = dictionary.promptHint()
         let instruction = mode?.instruction ?? ""
         let outputLanguage = mode?.outputLanguage
@@ -146,26 +152,64 @@ final class DictationController {
                                              systemInstruction: instruction,
                                              outputLanguage: outputLanguage)
         } catch {
-            usedFallback = true
             finalText = PolishPrompt.normalize(rawText)
         }
         session.setPolishedText(finalText)
 
-        // 3. Inject at the cursor.
+        // 3. Inject (optionally via an editable preview first).
+        if config.showPreviewBeforeInjection, let preview = previewController {
+            presentPreview(text: finalText, mode: mode, rawText: rawText, session: session, preview: preview)
+        } else {
+            injectAndRecord(rawText: rawText, finalText: finalText, session: session)
+        }
+    }
+
+    /// Shows the editable preview; on confirm re-activates the target app and injects,
+    /// on cancel discards without injecting or recording.
+    private func presentPreview(text: String,
+                                mode: PolishingMode?,
+                                rawText: String,
+                                session: RecordingSession,
+                                preview: PreviewWindowController) {
+        preview.onConfirm = { [weak self] edited in
+            Task { @MainActor in
+                guard let self = self else { return }
+                self.targetApp?.reactivate()
+                self.injectAndRecord(rawText: rawText, finalText: edited, session: session)
+            }
+        }
+        preview.onCancel = { [weak self] in
+            Task { @MainActor in
+                guard let self = self else { return }
+                print("[NoType] preview cancelled")
+                self.resetSession()
+                self.status.update(.idle)
+            }
+        }
+        preview.present(text: text, modeName: mode?.name)
+    }
+
+    /// Injects `finalText`, records history + stats, and resets the session.
+    private func injectAndRecord(rawText: String, finalText: String, session: RecordingSession) {
         do {
             try injector.inject(text: finalText)
-            _ = session.transition(to: usedFallback ? .insertedRaw : .inserted)
+            _ = session.transition(to: .inserted)
             status.update(.success)
-
-            // Record history and stats for the successful injection.
             let entry = RecordingEntry(rawText: rawText, polishedText: finalText)
             history.append(entry)
             stats.record(words: entry.wordCount)
-            self.session = nil
-            self.selectedMode = nil
         } catch {
             self.fail(with: error.localizedDescription)
+            return
         }
+        resetSession()
+    }
+
+    /// Clears the per-recording state so the shortcut can be reused (FR-016).
+    private func resetSession() {
+        session = nil
+        selectedMode = nil
+        targetApp = nil
     }
 
     private func fail(with detail: String) {
@@ -176,7 +220,6 @@ final class DictationController {
         status.update(.error)
         status.showError(detail)
         recorder.stop()
-        session = nil
-        selectedMode = nil
+        resetSession()
     }
 }

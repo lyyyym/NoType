@@ -12,6 +12,7 @@ final class SettingsWindowController: NSWindowController {
     private let llmFields: LLMConfigFields
     private let bubbleCheckbox = NSButton(checkboxWithTitle: "Show floating bubble while recording", target: nil, action: nil)
     private let bubblePositionPopup = NSPopUpButton()
+    private let previewCheckbox = NSButton(checkboxWithTitle: "Show editable preview before injecting", target: nil, action: nil)
 
     init(configuration: Configuration) {
         self.configuration = configuration
@@ -49,7 +50,8 @@ final class SettingsWindowController: NSWindowController {
             group(title: "Shortcut", views: [shortcutEditor.view]),
             group(title: "ASR Service", views: [asrFields.view]),
             group(title: "LLM Service", views: [llmFields.view]),
-            group(title: "Floating Bubble", views: [bubbleCheckbox, bubblePositionPopup])
+            group(title: "Floating Bubble", views: [bubbleCheckbox, bubblePositionPopup]),
+            group(title: "Preview", views: [previewCheckbox])
         ])
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -62,6 +64,7 @@ final class SettingsWindowController: NSWindowController {
         scrollView.documentView = documentView
 
         bubbleCheckbox.state = configuration.showFloatingBubble ? .on : .off
+        previewCheckbox.state = configuration.showPreviewBeforeInjection ? .on : .off
         bubblePositionPopup.addItems(withTitles: ["Cursor", "Menu Bar"])
         bubblePositionPopup.selectItem(at: configuration.bubblePosition == .cursor ? 0 : 1)
 
@@ -130,7 +133,8 @@ final class SettingsWindowController: NSWindowController {
             asr: asr,
             llm: llm,
             showFloatingBubble: bubbleCheckbox.state == .on,
-            bubblePosition: position
+            bubblePosition: position,
+            showPreviewBeforeInjection: previewCheckbox.state == .on
         )
 
         do {
