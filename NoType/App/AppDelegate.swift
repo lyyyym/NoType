@@ -95,12 +95,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.dictation = controller
 
         // 3. Register the global shortcut.
-        let monitor = GlobalShortcut(configuration: config.shortcut)
-        monitor.onPress = { [weak controller] in
+        let monitor = GlobalShortcut(bindings: [.init(modeID: Self.legacyModeID, shortcut: config.shortcut)])
+        monitor.onPress = { [weak controller] _ in
             print("[App] shortcut pressed")
             Task { @MainActor in controller?.didPressShortcut() }
         }
-        monitor.onRelease = { [weak controller] in
+        monitor.onRelease = { [weak controller] _ in
             print("[App] shortcut released")
             Task { @MainActor in controller?.didReleaseShortcut() }
         }
@@ -130,13 +130,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func reloadShortcut(configuration: Configuration) {
         shortcut?.stop()
-        let monitor = GlobalShortcut(configuration: configuration.shortcut)
+        let monitor = GlobalShortcut(bindings: [.init(modeID: Self.legacyModeID, shortcut: configuration.shortcut)])
         guard let controller = dictation else { return }
-        monitor.onPress = { [weak controller] in
+        monitor.onPress = { [weak controller] _ in
             print("[App] shortcut pressed")
             Task { @MainActor in controller?.didPressShortcut() }
         }
-        monitor.onRelease = { [weak controller] in
+        monitor.onRelease = { [weak controller] _ in
             print("[App] shortcut released")
             Task { @MainActor in controller?.didReleaseShortcut() }
         }
@@ -177,6 +177,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // MARK: - Defaults
+
+    /// Placeholder mode id used while the single-shortcut (pre-US1) path is wired.
+    /// Replaced by real `ModeStore` mode ids in US1.
+    private static let legacyModeID = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
 
     private static func defaultConfiguration() -> Configuration {
         Configuration(

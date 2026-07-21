@@ -1,26 +1,53 @@
 import Foundation
 
-/// Builds the LLM prompt used to polish a raw transcript. See `contracts/llm-api.md`.
+/// Builds the LLM prompt used to polish a raw transcript. See `contracts/llm-api.md`
+/// and `specs/003-modes-and-preview/contracts/polish-modes.md`.
 enum PolishPrompt {
 
-    /// System instruction for the polishing request.
-    static let systemPrompt =
-        "Polish the following transcript for grammar, punctuation, and fluency. " +
-        "Remove filler words and sounds (e.g. um, uh, er, 嗯, 呃, 那个, 就是, 然后). " +
-        "Smooth out repetitions while preserving the original language and meaning. " +
-        "Do not add explanations or commentary."
+    /// System instruction for the default "Everyday polish" mode. Anchored to the
+    /// shared constant so an upgrading V2 user gets byte-identical output (SC-005).
+    static let systemPrompt = PolishingMode.everydayInstruction
 
-    /// Builds the message array for an OpenAI-compatible `/chat/completions` request,
-    /// optionally including personal dictionary hints.
+    /// Builds the message array for an OpenAI-compatible `/chat/completions` request
+    /// using the default everyday instruction, optionally with dictionary hints.
     static func messages(for transcript: String, dictionaryHint: String = "") -> [[String: String]] {
-        var content = systemPrompt
+        messages(for: transcript, dictionaryHint: dictionaryHint, systemInstruction: systemPrompt, outputLanguage: nil)
+    }
+
+    /// Builds the message array for a specific polishing mode.
+    ///
+    /// - When `systemInstruction` is empty, no system message is produced (the caller
+    ///   should skip the LLM and use the raw transcript — plain dictation).
+    /// - `outputLanguage` and `dictionaryHint`, when present, are appended to the
+    ///   system message so every mode still benefits from the personal dictionary.
+    static func messages(for transcript: String,
+                         dictionaryHint: String = "",
+                         systemInstruction: String,
+                         outputLanguage: String?) -> [[String: String]] {
+        var messages: [[String: String]] = []
+        let systemContent = composeSystemMessage(instruction: systemInstruction,
+                                                 outputLanguage: outputLanguage,
+                                                 dictionaryHint: dictionaryHint)
+        if !systemContent.isEmpty {
+            messages.append(["role": "system", "content": systemContent])
+        }
+        messages.append(["role": "user", "content": transcript])
+        return messages
+    }
+
+    /// Composes the system message text from a mode's instruction, optional output
+    /// language, and dictionary hint. Exposed for unit testing.
+    static func composeSystemMessage(instruction: String, outputLanguage: String?, dictionaryHint: String) -> String {
+        let trimmedInstruction = instruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedInstruction.isEmpty else { return "" }
+        var content = trimmedInstruction
+        if let language = outputLanguage?.trimmingCharacters(in: .whitespacesAndNewlines), !language.isEmpty {
+            content += "\nOutput language: " + language
+        }
         if !dictionaryHint.isEmpty {
             content += "\n\n" + dictionaryHint
         }
-        return [
-            ["role": "system", "content": content],
-            ["role": "user", "content": transcript],
-        ]
+        return content
     }
 
     /// Normalizes the LLM output before injection: trims surrounding whitespace

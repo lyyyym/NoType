@@ -4,7 +4,7 @@ import Foundation
 ///
 /// See `contracts/config-toml.md` for the on-disk schema.
 struct Configuration {
-    struct Shortcut: Codable {
+    struct Shortcut: Codable, Equatable, Hashable {
         /// Single character or named key, e.g. `"."` or `"f12"`.
         var key: String
         /// Modifier names, each one of `command`, `option`, `control`, `shift`.
