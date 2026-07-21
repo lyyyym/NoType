@@ -138,6 +138,7 @@ final class DictationController {
             let entry = RecordingEntry(rawText: rawText, polishedText: finalText)
             history.append(entry)
             stats.record(words: entry.wordCount)
+            self.session = nil
         } catch {
             self.fail(with: error.localizedDescription)
         }
@@ -151,5 +152,6 @@ final class DictationController {
         status.update(.error)
         status.showError(detail)
         recorder.stop()
+        session = nil
     }
 }
