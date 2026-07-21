@@ -60,8 +60,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.startNormalFlow(config: freshConfig)
         }
         self.onboardingWindow = controller
-        NSApp.activate(ignoringOtherApps: true)
-        controller.window?.makeKeyAndOrderFront(nil)
+        controller.showWindow(nil)
+        if let window = controller.window {
+            print("[AppDelegate] onboarding window is non-nil, ordering front")
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+            window.level = .modalPanel
+        } else {
+            print("[AppDelegate] onboarding window is nil, falling back to normal flow")
+            startNormalFlow(config: config)
+        }
     }
 
     // MARK: - Normal flow
