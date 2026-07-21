@@ -21,6 +21,7 @@ final class OnboardingWindowController: NSWindowController {
     private var llmFields: LLMConfigFields?
 
     init(configuration: Configuration) {
+        print("[Onboarding] init start")
         self.configuration = configuration
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 520, height: 360),
@@ -30,15 +31,20 @@ final class OnboardingWindowController: NSWindowController {
         )
         window.title = "Welcome to NoType"
         window.center()
+        print("[Onboarding] window created")
         super.init(window: window)
+        print("[Onboarding] super.init done")
 
         self.pages = [
             createMicrophonePage(),
             createAccessibilityPage(),
             createConfigPage()
         ]
+        print("[Onboarding] pages created")
         setupUI()
+        print("[Onboarding] setupUI done")
         showPage(0)
+        print("[Onboarding] first page shown")
     }
 
     required init?(coder: NSCoder) {
