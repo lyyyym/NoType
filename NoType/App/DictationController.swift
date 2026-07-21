@@ -15,6 +15,10 @@ final class DictationController {
     private let llm: LLMClient
     private let injector: KeyboardInjector
     private let status: StatusBarController
+    private let history: HistoryStore
+    private let stats: StatsStore
+    private let dictionary: DictionaryStore
+    private let bubble: FloatingBubbleWindow?
 
     private var session: RecordingSession?
 
@@ -24,7 +28,11 @@ final class DictationController {
          recorder: AudioRecorder? = nil,
          asr: ASRClient? = nil,
          llm: LLMClient? = nil,
-         injector: KeyboardInjector = KeyboardInjector()) {
+         injector: KeyboardInjector = KeyboardInjector(),
+         history: HistoryStore? = nil,
+         stats: StatsStore? = nil,
+         dictionary: DictionaryStore? = nil,
+         bubble: FloatingBubbleWindow? = nil) {
         self.config = config
         self.status = status
         self.buffer = buffer
@@ -32,6 +40,10 @@ final class DictationController {
         self.asr = asr ?? ASRClient(config: config.asr)
         self.llm = llm ?? LLMClient(config: config.llm)
         self.injector = injector
+        self.history = history ?? HistoryStore()
+        self.stats = stats ?? StatsStore()
+        self.dictionary = dictionary ?? DictionaryStore()
+        self.bubble = bubble ?? (config.showFloatingBubble ? FloatingBubbleWindow() : nil)
 
         self.recorder.onFailure = { [weak self] detail in
             Task { @MainActor in self?.fail(with: detail) }
@@ -56,6 +68,7 @@ final class DictationController {
         _ = newSession.transition(to: .recording)
         session = newSession
         status.update(.recording)
+        bubble?.show(position: config.bubblePosition)
 
         do {
             try recorder.start()
@@ -66,6 +79,7 @@ final class DictationController {
 
     private func stopAndProcess() {
         recorder.stop()
+        bubble?.hide()
         guard let session = session, session.status == .recording else { return }
         _ = session.transition(to: .processing)
         status.update(.processing)
@@ -105,8 +119,9 @@ final class DictationController {
         // 2. LLM polish, fall back to raw text on failure (FR-013).
         var finalText = rawText
         var usedFallback = false
+        let dictionaryHint = dictionary.promptHint()
         do {
-            finalText = try await llm.polish(transcript: rawText)
+            finalText = try await llm.polish(transcript: rawText, dictionaryHint: dictionaryHint)
         } catch {
             usedFallback = true
             finalText = PolishPrompt.normalize(rawText)
@@ -118,6 +133,12 @@ final class DictationController {
             try injector.inject(text: finalText)
             _ = session.transition(to: usedFallback ? .insertedRaw : .inserted)
             status.update(.success)
+
+            // Record history and stats for the successful injection.
+            let entry = RecordingEntry(rawText: rawText, polishedText: finalText)
+            history.append(entry)
+            stats.record(words: entry.wordCount)
+            self.session = nil
         } catch {
             self.fail(with: error.localizedDescription)
         }
@@ -125,10 +146,12 @@ final class DictationController {
 
     private func fail(with detail: String) {
         print("[NoType] fail: \(detail)")
+        bubble?.hide()
         session?.setError(detail)
         _ = session?.transition(to: .failed)
         status.update(.error)
         status.showError(detail)
         recorder.stop()
+        session = nil
     }
 }

@@ -1,8 +1,17 @@
 # NoType
 
-NoType V1: macOS core voice input.
+NoType V2: a configurable daily voice input tool for macOS.
 
 Hold a global shortcut (default `Command + .`), speak, release, and the polished text is inserted at the current cursor position via simulated keyboard input.
+
+## V2 Features
+
+- **First-launch onboarding**: guided setup for microphone permission, accessibility permission, and basic ASR/LLM configuration.
+- **Settings window**: edit shortcut, ASR/LLM endpoints, API keys, and UI preferences without touching the TOML file.
+- **Recording history**: keep the last 50 successful voice inputs locally; copy or delete entries.
+- **Word count statistics**: daily and cumulative word counts from injected text.
+- **Personal dictionary**: manually manage custom terms; entries are used as hints during LLM polish.
+- **Floating recording bubble**: visual indicator while recording.
 
 ## Build
 
@@ -34,28 +43,32 @@ modifiers = ["command"]
 [asr]
 base_url = "https://your-asr-provider.com/v1"
 api_key = "sk-..."
-model = "qwen-asr-flash"
+model = "qwen3-asr-flash"
 
 [llm]
 base_url = "https://your-llm-provider.com/v1"
 api_key = "sk-..."
-model = "gpt-4o-mini"
+model = "deepseek-chat"
 temperature = 0.0
 max_tokens = 4096
+
+[ui]
+show_floating_bubble = true
+bubble_position = "cursor"
 ```
 
-Changes require an app restart.
+Settings changed in the Settings window are saved to the same file and take effect immediately.
 
 > **Note on TOML parsing:** The plan called for the `TOMLKit` package. To keep the build self-contained, a focused TOML reader is included in `Config/ConfigLoader.swift`. It supports the fixed config schema and can be replaced with `TOMLKit` later without touching `Configuration`.
 
 ## Permissions
 
-- **Microphone**: requested automatically on first recording.
-- **Accessibility**: required for keyboard injection. The app prompts once on launch.
+- **Microphone**: requested during onboarding and on first recording.
+- **Accessibility**: required for keyboard injection. The app prompts during onboarding and via the menu bar.
 
 ## Validation
 
-See [`specs/001-core-voice-input/quickstart.md`](../specs/001-core-voice-input/quickstart.md) for end-to-end validation scenarios.
+See [`specs/002-configurable-voice-tool/quickstart.md`](specs/002-configurable-voice-tool/quickstart.md) for end-to-end validation scenarios.
 
 ## Project Structure
 
@@ -63,17 +76,19 @@ See [`specs/001-core-voice-input/quickstart.md`](../specs/001-core-voice-input/q
 NoType/
 ├── Package.swift
 ├── README.md
-├── Info.plist           # For distribution as an .app bundle
 └── NoType/
     ├── App/
     │   ├── NoTypeApp.swift
+    │   ├── AppDelegate.swift
     │   ├── StatusBarController.swift
-    │   └── DictationController.swift
+    │   ├── DictationController.swift
+    │   └── OnboardingWindowController.swift
     ├── Config/
     │   ├── Config.swift
     │   └── ConfigLoader.swift
     ├── Audio/
-    │   └── AudioRecorder.swift
+    │   ├── AudioRecorder.swift
+    │   └── AudioBuffer.swift
     ├── Input/
     │   ├── GlobalShortcut.swift
     │   └── KeyboardInjector.swift
@@ -81,8 +96,28 @@ NoType/
     │   ├── ASRClient.swift
     │   ├── LLMClient.swift
     │   └── PolishPrompt.swift
-    └── Models/
-        ├── AudioBuffer.swift
-        ├── RecordingSession.swift
-        └── RecordingError.swift
+    ├── UI/
+    │   ├── SettingsWindowController.swift
+    │   ├── HistoryWindowController.swift
+    │   ├── StatsWindowController.swift
+    │   ├── DictionaryWindowController.swift
+    │   └── FloatingBubbleWindow.swift
+    ├── Persistence/
+    │   ├── PersistenceDirectory.swift
+    │   ├── JSONFileStore.swift
+    │   ├── ConfigStore.swift
+    │   ├── OnboardingStore.swift
+    │   ├── HistoryStore.swift
+    │   ├── StatsStore.swift
+    │   └── DictionaryStore.swift
+    ├── Models/
+    │   ├── AudioBuffer.swift
+    │   ├── RecordingSession.swift
+    │   ├── RecordingError.swift
+    │   ├── RecordingEntry.swift
+    │   ├── WordCountStats.swift
+    │   ├── WordCounter.swift
+    │   ├── OnboardingState.swift
+    │   └── PersonalDictionaryEntry.swift
+    └── Configuration.swift
 ```

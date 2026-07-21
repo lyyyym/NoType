@@ -84,7 +84,33 @@ extension ConfigLoader {
         let shortcut = try buildShortcut(sections["shortcut"])
         let asr = try buildService(section: sections["asr"], name: "asr")
         let llm = try buildLLM(sections["llm"])
-        return Configuration(shortcut: shortcut, asr: asr, llm: llm)
+        let ui = try buildUI(sections["ui"])
+        return Configuration(
+            shortcut: shortcut,
+            asr: asr,
+            llm: llm,
+            showFloatingBubble: ui.showFloatingBubble,
+            bubblePosition: ui.bubblePosition
+        )
+    }
+
+    static func buildUI(_ fields: [String: String]?) throws -> (showFloatingBubble: Bool, bubblePosition: Configuration.BubblePosition) {
+        let fields = fields ?? [:]
+        let showFloatingBubble: Bool
+        if let raw = fields["show_floating_bubble"] {
+            let value = unwrapString(raw).lowercased()
+            showFloatingBubble = (value == "true")
+        } else {
+            showFloatingBubble = true
+        }
+        let bubblePosition: Configuration.BubblePosition
+        if let raw = fields["bubble_position"] {
+            let value = unwrapString(raw)
+            bubblePosition = Configuration.BubblePosition(rawValue: value) ?? .cursor
+        } else {
+            bubblePosition = .cursor
+        }
+        return (showFloatingBubble, bubblePosition)
     }
 
     static func buildShortcut(_ fields: [String: String]?) throws -> Configuration.Shortcut {

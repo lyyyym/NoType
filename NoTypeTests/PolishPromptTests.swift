@@ -26,4 +26,11 @@ struct PolishPromptTests {
     @Test func normalizePreservesCJK() {
         #expect(PolishPrompt.normalize(" 你好，世界 ") == "你好，世界")
     }
+
+    @Test func messagesIncludeDictionaryHint() {
+        let hint = "Preferred terms:\n- \"SwiftUI\""
+        let messages = PolishPrompt.messages(for: "hello", dictionaryHint: hint)
+        #expect(messages.count == 2)
+        #expect(messages[0]["content"]?.contains("SwiftUI") == true)
+    }
 }

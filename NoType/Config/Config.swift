@@ -30,9 +30,29 @@ struct Configuration {
         static let defaultMaxTokens: Int = 4096
     }
 
+    /// Where the floating recording bubble should appear.
+    enum BubblePosition: String, Codable {
+        case cursor
+        case menuBar
+    }
+
     var shortcut: Shortcut
     var asr: ServiceConfig
     var llm: LLMConfig
+    var showFloatingBubble: Bool
+    var bubblePosition: BubblePosition
+
+    init(shortcut: Shortcut = .default,
+         asr: ServiceConfig,
+         llm: LLMConfig,
+         showFloatingBubble: Bool = true,
+         bubblePosition: BubblePosition = .cursor) {
+        self.shortcut = shortcut
+        self.asr = asr
+        self.llm = llm
+        self.showFloatingBubble = showFloatingBubble
+        self.bubblePosition = bubblePosition
+    }
 }
 
 extension Configuration {

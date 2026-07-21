@@ -8,6 +8,15 @@ final class StatusBarController {
     private let statusItem: NSStatusItem
     private var state: State = .idle
 
+    /// Called when the user selects Settings from the menu.
+    var onOpenSettings: (() -> Void)?
+    /// Called when the user selects History from the menu.
+    var onOpenHistory: (() -> Void)?
+    /// Called when the user selects Dictionary from the menu.
+    var onOpenDictionary: (() -> Void)?
+    /// Called when the user selects Statistics from the menu.
+    var onOpenStats: (() -> Void)?
+
     enum State {
         case idle
         case recording
@@ -55,6 +64,20 @@ final class StatusBarController {
         menu.addItem(withTitle: "NoType", action: nil, keyEquivalent: "")
         menu.addItem(.separator())
 
+        let settingsItem = menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
+
+        let historyItem = menu.addItem(withTitle: "History…", action: #selector(openHistory), keyEquivalent: "")
+        historyItem.target = self
+
+        let dictionaryItem = menu.addItem(withTitle: "Dictionary…", action: #selector(openDictionary), keyEquivalent: "")
+        dictionaryItem.target = self
+
+        let statsItem = menu.addItem(withTitle: "Statistics…", action: #selector(openStats), keyEquivalent: "")
+        statsItem.target = self
+
+        menu.addItem(.separator())
+
         let configItem = menu.addItem(withTitle: "Open config folder", action: #selector(openConfigFolder), keyEquivalent: "")
         configItem.target = self
 
@@ -66,6 +89,22 @@ final class StatusBarController {
         quitItem.target = self
 
         statusItem.menu = menu
+    }
+
+    @objc private func openSettings() {
+        onOpenSettings?()
+    }
+
+    @objc private func openHistory() {
+        onOpenHistory?()
+    }
+
+    @objc private func openDictionary() {
+        onOpenDictionary?()
+    }
+
+    @objc private func openStats() {
+        onOpenStats?()
     }
 
     @objc private func openConfigFolder() {

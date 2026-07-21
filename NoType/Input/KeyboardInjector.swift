@@ -6,7 +6,7 @@ import CoreGraphics
 /// See `contracts/keyboard-injection.md`. ASCII characters are typed as
 /// virtual key events; non-ASCII characters (e.g. Chinese) are injected as a
 /// Unicode string via `CGEvent.keyboardSetUnicodeString`.
-final class KeyboardInjector {
+class KeyboardInjector {
 
     enum Segment: Equatable {
         /// A run of ASCII characters, typed via key events.
