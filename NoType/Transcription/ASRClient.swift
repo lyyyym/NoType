@@ -5,7 +5,7 @@ import Foundation
 /// These models (e.g. `qwen3-asr-flash`) expose ASR through the
 /// `/v1/chat/completions` endpoint with an `audio_url` content part,
 /// rather than the standard Whisper-style `/v1/audio/transcriptions` endpoint.
-final class ASRClient {
+class ASRClient {
 
     let config: Configuration.ServiceConfig
     let session: URLSession

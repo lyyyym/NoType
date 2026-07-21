@@ -11,8 +11,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var configuration: Configuration?
 
     private var settingsWindow: SettingsWindowController?
+    private var historyWindow: HistoryWindowController?
+    private var statsWindow: StatsWindowController?
+    private var dictionaryWindow: DictionaryWindowController?
 
     private let onboardingStore = OnboardingStore()
+    private let historyStore = HistoryStore()
+    private let statsStore = StatsStore()
+    private let dictionaryStore = DictionaryStore()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // 1. Load configuration. If missing or invalid, use a default config so
@@ -64,7 +70,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.statusBar = status
 
         // 2. Wire the dictation pipeline.
-        let controller = DictationController(config: config, status: status)
+        let controller = DictationController(
+            config: config,
+            status: status,
+            history: historyStore,
+            stats: statsStore,
+            dictionary: dictionaryStore
+        )
         self.dictation = controller
 
         // 3. Register the global shortcut.
@@ -118,20 +130,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Re-create dictation controller so it picks up new ASR/LLM config.
         if let status = statusBar {
-            self.dictation = DictationController(config: configuration, status: status)
+            self.dictation = DictationController(
+                config: configuration,
+                status: status,
+                history: historyStore,
+                stats: statsStore,
+                dictionary: dictionaryStore
+            )
         }
     }
 
     private func openHistory() {
-        // TODO: Implement in User Story 3.
+        let controller = HistoryWindowController(historyStore: historyStore) { [weak self] words in
+            self?.statsStore.remove(words: words)
+            self?.statsWindow?.refresh()
+        }
+        self.historyWindow = controller
+        controller.showWindow(nil)
     }
 
     private func openDictionary() {
-        // TODO: Implement in User Story 5.
+        let controller = DictionaryWindowController(dictionaryStore: dictionaryStore)
+        self.dictionaryWindow = controller
+        controller.showWindow(nil)
     }
 
     private func openStats() {
-        // TODO: Implement in User Story 4.
+        let controller = StatsWindowController(statsStore: statsStore)
+        self.statsWindow = controller
+        controller.showWindow(nil)
     }
 
     // MARK: - Defaults

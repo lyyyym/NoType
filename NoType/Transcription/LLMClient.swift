@@ -2,7 +2,7 @@ import Foundation
 
 /// Calls an OpenAI-compatible LLM endpoint to polish a transcript.
 /// See `contracts/llm-api.md`.
-final class LLMClient {
+class LLMClient {
 
     let config: Configuration.LLMConfig
     let session: URLSession
@@ -31,7 +31,7 @@ final class LLMClient {
 
     /// Sends the transcript for polishing and returns the polished text.
     /// - Throws: `TranscriptionError.llmFailed` on network or HTTP failure.
-    func polish(transcript: String) async throws -> String {
+    func polish(transcript: String, dictionaryHint: String = "") async throws -> String {
         let url = try endpointURL()
         var request = URLRequest(url: url, timeoutInterval: timeout)
         request.httpMethod = "POST"
@@ -40,7 +40,7 @@ final class LLMClient {
 
         let body = try Self.requestBody(
             model: config.model,
-            messages: PolishPrompt.messages(for: transcript),
+            messages: PolishPrompt.messages(for: transcript, dictionaryHint: dictionaryHint),
             temperature: config.temperature,
             maxTokens: config.maxTokens
         )

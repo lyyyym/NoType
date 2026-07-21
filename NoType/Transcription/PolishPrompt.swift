@@ -8,10 +8,15 @@ enum PolishPrompt {
         "Polish the following transcript for grammar and punctuation. " +
         "Preserve the original language. Do not add explanations."
 
-    /// Builds the message array for an OpenAI-compatible `/chat/completions` request.
-    static func messages(for transcript: String) -> [[String: String]] {
+    /// Builds the message array for an OpenAI-compatible `/chat/completions` request,
+    /// optionally including personal dictionary hints.
+    static func messages(for transcript: String, dictionaryHint: String = "") -> [[String: String]] {
+        var content = systemPrompt
+        if !dictionaryHint.isEmpty {
+            content += "\n\n" + dictionaryHint
+        }
         return [
-            ["role": "system", "content": systemPrompt],
+            ["role": "system", "content": content],
             ["role": "user", "content": transcript],
         ]
     }
