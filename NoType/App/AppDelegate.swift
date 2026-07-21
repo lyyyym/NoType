@@ -21,12 +21,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let dictionaryStore = DictionaryStore()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        print("[AppDelegate] applicationDidFinishLaunching")
         // 1. Load configuration. If missing or invalid, use a default config so
         //    onboarding can collect the real values from the user.
         let config: Configuration
         do {
             let path = try ConfigLoader.defaultPath()
             config = try ConfigLoader.load(from: path)
+            print("[AppDelegate] loaded config from \(path.path)")
         } catch {
             print("[AppDelegate] config load failed: \(error.localizedDescription); starting onboarding with defaults")
             config = AppDelegate.defaultConfiguration()
@@ -35,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 2. First-launch onboarding.
         let state = onboardingStore.load()
+        print("[AppDelegate] onboarding completed: \(state.hasCompletedOnboarding)")
         if !state.hasCompletedOnboarding {
             showOnboarding(config: config)
         } else {
@@ -45,9 +48,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Onboarding
 
     private func showOnboarding(config: Configuration) {
+        print("[AppDelegate] showing onboarding")
         let controller = OnboardingWindowController(configuration: config)
         controller.onComplete = { [weak self] in
             guard let self = self else { return }
+            print("[AppDelegate] onboarding complete")
             self.onboardingWindow = nil
             // Reload configuration in case onboarding changed it.
             let freshConfig = (try? ConfigStore.load()) ?? config
@@ -55,12 +60,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.startNormalFlow(config: freshConfig)
         }
         self.onboardingWindow = controller
-        controller.showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        controller.window?.makeKeyAndOrderFront(nil)
     }
 
     // MARK: - Normal flow
 
     private func startNormalFlow(config: Configuration) {
+        print("[AppDelegate] starting normal flow")
         // 1. Set up the menu-bar UI.
         let status = StatusBarController()
         status.onOpenSettings = { [weak self] in self?.openSettings() }
