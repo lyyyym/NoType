@@ -30,12 +30,14 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         self.llmFields = LLMConfigFields(configuration: configuration.llm)
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 620),
-            styleMask: [.titled, .closable, .miniaturizable],
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 680),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.title = "NoType Settings"
+        window.titlebarAppearsTransparent = false
+        window.center()
         super.init(window: window)
 
         refreshModesSnapshot()
@@ -54,70 +56,96 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
 
         let scrollView = NSScrollView()
         scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = true
+        scrollView.drawsBackground = false
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(scrollView)
 
-        let stack = NSStackView(views: [
-            modesSection(),
-            group(title: "ASR Service", views: [asrFields.view]),
-            group(title: "LLM Service", views: [llmFields.view]),
-            group(title: "Floating Bubble", views: [bubbleCheckbox, bubblePositionPopup]),
-            group(title: "Preview", views: [previewCheckbox])
-        ])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 20
-        stack.translatesAutoresizingMaskIntoConstraints = false
+        // Section cards.
+        let cards = [
+            SettingsUI.card(title: "Polishing Modes", content: modesSection()),
+            SettingsUI.card(title: "ASR Service", content: asrFields.view),
+            SettingsUI.card(title: "LLM Service", content: llmFields.view),
+            SettingsUI.card(title: "Recording & Preview", content: appearanceSection())
+        ]
+
+        let mainStack = NSStackView(views: cards)
+        mainStack.orientation = .vertical
+        mainStack.alignment = .leading
+        mainStack.spacing = 18
+        mainStack.translatesAutoresizingMaskIntoConstraints = false
 
         let documentView = NSView()
         documentView.translatesAutoresizingMaskIntoConstraints = false
-        documentView.addSubview(stack)
+        documentView.addSubview(mainStack)
         scrollView.documentView = documentView
 
+        // Initialize control values.
         bubbleCheckbox.state = configuration.showFloatingBubble ? .on : .off
         previewCheckbox.state = configuration.showPreviewBeforeInjection ? .on : .off
-        bubblePositionPopup.addItems(withTitles: ["Cursor", "Menu Bar"])
+        bubblePositionPopup.addItems(withTitles: ["Near cursor", "Under menu bar"])
         bubblePositionPopup.selectItem(at: configuration.bubblePosition == .cursor ? 0 : 1)
+
+        // Bottom button.
+        let separator = NSBox()
+        separator.boxType = .separator
+        separator.translatesAutoresizingMaskIntoConstraints = false
+
+        let cancelButton = NSButton(title: "Cancel", target: self, action: #selector(close))
+        cancelButton.translatesAutoresizingMaskIntoConstraints = false
+        cancelButton.controlSize = .large
+        cancelButton.bezelStyle = .rounded
 
         let saveButton = NSButton(title: "Save", target: self, action: #selector(save))
         saveButton.keyEquivalent = "\r"
         saveButton.translatesAutoresizingMaskIntoConstraints = false
+        saveButton.controlSize = .large
+        saveButton.bezelStyle = .rounded
 
-        let cancelButton = NSButton(title: "Cancel", target: self, action: #selector(close))
-        cancelButton.translatesAutoresizingMaskIntoConstraints = false
-
-        contentView.addSubview(saveButton)
-        contentView.addSubview(cancelButton)
+        let buttonBar = NSStackView(views: [cancelButton, saveButton])
+        buttonBar.orientation = .horizontal
+        buttonBar.spacing = 10
+        buttonBar.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(separator)
+        contentView.addSubview(buttonBar)
 
         NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
+            scrollView.topAnchor.constraint(equalTo: contentView.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             scrollView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            scrollView.bottomAnchor.constraint(equalTo: saveButton.topAnchor, constant: -16),
+            scrollView.bottomAnchor.constraint(equalTo: separator.topAnchor),
 
-            stack.topAnchor.constraint(equalTo: documentView.topAnchor, constant: 8),
-            stack.leadingAnchor.constraint(equalTo: documentView.leadingAnchor, constant: 8),
-            stack.trailingAnchor.constraint(equalTo: documentView.trailingAnchor, constant: -8),
-            stack.bottomAnchor.constraint(equalTo: documentView.bottomAnchor, constant: -8),
-            stack.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -16),
+            separator.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            separator.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            separator.bottomAnchor.constraint(equalTo: buttonBar.topAnchor, constant: -8),
 
-            cancelButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            cancelButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
+            buttonBar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            buttonBar.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            buttonBar.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
 
-            saveButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            saveButton.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
+            // Document view: no horizontal scrolling; vertical content drives height.
+            mainStack.topAnchor.constraint(equalTo: documentView.topAnchor, constant: 20),
+            mainStack.leadingAnchor.constraint(equalTo: documentView.leadingAnchor, constant: 4),
+            mainStack.trailingAnchor.constraint(equalTo: documentView.trailingAnchor, constant: -4),
+            mainStack.bottomAnchor.constraint(equalTo: documentView.bottomAnchor, constant: -20),
+            mainStack.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor, constant: -8)
         ])
+
+        // Stretch every card to the stack width.
+        for card in cards {
+            card.widthAnchor.constraint(equalTo: mainStack.widthAnchor).isActive = true
+        }
     }
 
     // MARK: - Polishing modes section
 
     private func modesSection() -> NSView {
-        let label = NSTextField(labelWithString: "Polishing Modes")
-        label.font = NSFont.boldSystemFont(ofSize: 13)
-
         modesTable.dataSource = self
         modesTable.delegate = self
         modesTable.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
+        modesTable.usesAlternatingRowBackgroundColors = true
+        modesTable.rowHeight = 22
+        modesTable.backgroundColor = .clear
         let nameCol = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("name"))
         nameCol.title = "Name"
         let shortcutCol = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("shortcut"))
@@ -131,38 +159,47 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         let tableScroll = NSScrollView()
         tableScroll.documentView = modesTable
         tableScroll.hasVerticalScroller = true
-        tableScroll.borderType = .bezelBorder
-        tableScroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 140).isActive = true
+        tableScroll.autohidesScrollers = true
+        tableScroll.borderType = .noBorder
+        tableScroll.drawsBackground = false
+        tableScroll.translatesAutoresizingMaskIntoConstraints = false
+        tableScroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 150).isActive = true
 
         let addButton = NSButton(title: "Add", target: self, action: #selector(addMode))
+        addButton.controlSize = .small
         let editButton = NSButton(title: "Edit", target: self, action: #selector(editMode))
+        editButton.controlSize = .small
         let deleteButton = NSButton(title: "Delete", target: self, action: #selector(deleteMode))
+        deleteButton.controlSize = .small
         let buttonRow = NSStackView(views: [addButton, editButton, deleteButton])
         buttonRow.orientation = .horizontal
         buttonRow.spacing = 8
 
-        let stack = NSStackView(views: [label, tableScroll, buttonRow])
+        let stack = NSStackView(views: [tableScroll, buttonRow])
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 8
+        stack.spacing = 10
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        tableScroll.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        return stack
+    }
+
+    private func appearanceSection() -> NSView {
+        let positionRow = SettingsUI.row(label: "Bubble position", field: bubblePositionPopup, labelWidth: 140)
+        let stack = NSStackView(views: [bubbleCheckbox, positionRow, previewCheckbox])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 10
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        for arranged in stack.arrangedSubviews {
+            arranged.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
         return stack
     }
 
     private func refreshModesSnapshot() {
         modesSnapshot = modeStore.allModes()
         modesTable.reloadData()
-    }
-
-    private func group(title: String, views: [NSView]) -> NSView {
-        let label = NSTextField(labelWithString: title)
-        label.font = NSFont.boldSystemFont(ofSize: 13)
-        var arranged: [NSView] = [label]
-        arranged.append(contentsOf: views)
-        let stack = NSStackView(views: arranged)
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 8
-        return stack
     }
 
     private func shortcutLabel(_ shortcut: Configuration.Shortcut) -> String {
@@ -186,12 +223,13 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         case "type": text = mode.isBuiltin ? "Built-in" : "Custom"
         default: text = ""
         }
-        let cell = tableView.makeView(withIdentifier: NSUserInterfaceItemIdentifier("cell"), owner: nil) as? NSTextField
-        ?? {
-            let field = NSTextField(labelWithString: "")
-            field.identifier = NSUserInterfaceItemIdentifier("cell")
-            return field
-        }()
+        let cell = (tableView.makeView(withIdentifier: NSUserInterfaceItemIdentifier("cell"), owner: nil) as? NSTextField)
+            ?? {
+                let field = NSTextField(labelWithString: "")
+                field.identifier = NSUserInterfaceItemIdentifier("cell")
+                field.font = .systemFont(ofSize: 12)
+                return field
+            }()
         cell.stringValue = text
         return cell
     }
@@ -279,12 +317,13 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         }
         pendingEditor = editor
 
-        let panel = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 420),
+        let panel = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 460),
                              styleMask: [.titled, .closable],
                              backing: .buffered,
                              defer: false)
         panel.title = existing == nil ? "Add Mode" : "Edit Mode"
         panel.isReleasedWhenClosed = false
+        panel.center()
         editorWindow = panel
 
         guard let contentView = panel.contentView else { return nil }
@@ -293,20 +332,22 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
 
         let saveButton = NSButton(title: "Save", target: self, action: #selector(editorConfirm))
         saveButton.keyEquivalent = "\r"
+        saveButton.controlSize = .large
         let cancelButton = NSButton(title: "Cancel", target: self, action: #selector(editorCancel))
         cancelButton.keyEquivalent = "\u{1B}"
+        cancelButton.controlSize = .large
         let buttonRow = NSStackView(views: [cancelButton, saveButton])
         buttonRow.orientation = .horizontal
-        buttonRow.spacing = 8
+        buttonRow.spacing = 10
         buttonRow.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(buttonRow)
 
         NSLayoutConstraint.activate([
-            editor.view.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
-            editor.view.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            editor.view.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            editor.view.bottomAnchor.constraint(equalTo: buttonRow.topAnchor, constant: -12),
-            buttonRow.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            editor.view.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 18),
+            editor.view.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 18),
+            editor.view.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -18),
+            editor.view.bottomAnchor.constraint(equalTo: buttonRow.topAnchor, constant: -14),
+            buttonRow.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -18),
             buttonRow.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
         ])
 

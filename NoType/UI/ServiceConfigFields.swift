@@ -21,17 +21,10 @@ final class ServiceConfigFields {
         baseURLField.stringValue = config.baseURL
         apiKeyField.stringValue = config.apiKey
         modelField.stringValue = config.model
-        let stack = NSStackView(views: [
-            NSTextField(labelWithString: "\(title) base URL:"),
-            baseURLField,
-            NSTextField(labelWithString: "\(title) API key:"),
-            apiKeyField,
-            NSTextField(labelWithString: "\(title) model:"),
-            modelField
+        view = SettingsUI.rowsStack([
+            SettingsUI.row(label: "Base URL", field: baseURLField),
+            SettingsUI.row(label: "API key", field: apiKeyField),
+            SettingsUI.row(label: "Model", field: modelField)
         ])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 4
-        view = stack
     }
 }

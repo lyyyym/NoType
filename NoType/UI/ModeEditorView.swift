@@ -15,13 +15,21 @@ final class ModeEditorView {
 
     init() {
         self.shortcutEditor = ShortcutEditorView(configuration: .default)
-        let textView = NSTextView()
+
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 380, height: 110))
         textView.isEditable = true
         textView.isSelectable = true
-        textView.drawsBackground = false
+        textView.drawsBackground = true
+        textView.backgroundColor = .textBackgroundColor
+        textView.textColor = .textColor
         textView.font = .systemFont(ofSize: 12)
         textView.isRichText = false
-        textView.minSize = NSSize(width: 0, height: 80)
+        textView.isHorizontallyResizable = false
+        textView.isVerticallyResizable = true
+        textView.autoresizingMask = [.width]
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
+        textView.textContainerInset = NSSize(width: 4, height: 4)
         self.instructionTextView = textView
 
         let instructionScroll = NSScrollView()
@@ -29,21 +37,29 @@ final class ModeEditorView {
         instructionScroll.autohidesScrollers = true
         instructionScroll.documentView = textView
         instructionScroll.borderType = .bezelBorder
-        instructionScroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 80).isActive = true
+        instructionScroll.translatesAutoresizingMaskIntoConstraints = false
+        instructionScroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 110).isActive = true
+
+        let hint = NSTextField(labelWithString: "Empty instruction = plain dictation (raw transcript, no LLM).")
+        hint.font = .systemFont(ofSize: 10)
+        hint.textColor = .tertiaryLabelColor
+        hint.translatesAutoresizingMaskIntoConstraints = false
 
         let stack = NSStackView(views: [
-            NSTextField(labelWithString: "Name:"),
-            nameField,
-            NSTextField(labelWithString: "Shortcut — key (e.g. . or f5):"),
-            shortcutEditor.view,
-            NSTextField(labelWithString: "Output language (optional, e.g. English):"),
-            languageField,
-            NSTextField(labelWithString: "Polishing instruction (empty = plain dictation):"),
-            instructionScroll
+            SettingsUI.row(label: "Name", field: nameField),
+            SettingsUI.row(label: "Key", field: shortcutEditor.keyField),
+            SettingsUI.row(label: "Modifiers", field: shortcutEditor.modifiersField),
+            SettingsUI.row(label: "Output language", field: languageField),
+            SettingsUI.row(label: "Instruction", field: instructionScroll),
+            hint
         ])
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 4
+        stack.spacing = 10
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        for arranged in stack.arrangedSubviews {
+            arranged.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
         view = stack
     }
 
