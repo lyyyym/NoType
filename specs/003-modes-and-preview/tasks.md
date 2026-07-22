@@ -26,10 +26,10 @@ description: "Task list for NoType V3 implementation"
 
 **Purpose**: Add the base mode entity and extend the existing configuration with the preview toggle. All touch different files and are parallelizable.
 
-- [ ] T001 [P] Create `NoType/Models/PolishingMode.swift` with the `PolishingMode` struct: `id: UUID`, `name: String`, `shortcut: Configuration.Shortcut`, `instruction: String`, `outputLanguage: String?`, `isBuiltin: Bool`, `createdAt: Date`; `Codable` + `Identifiable`; default memberwise init with `id = UUID()`, `createdAt = Date()`
-- [ ] T002 [P] Extend `NoType/Config/Config.swift` (the `Configuration` struct) with `var showPreviewBeforeInjection: Bool` (default `false`) added to the init with a default value
-- [ ] T003 [P] Extend `NoType/Config/ConfigLoader.swift` `buildUI` to parse `[ui].show_preview_before_injection` (default `false`, same pattern as `show_floating_bubble`) and thread it through `build`
-- [ ] T004 [P] Extend `NoType/Persistence/ConfigStore.swift` `serialize` to write `show_preview_before_injection` under the `[ui]` section
+- [x] T001 [P] Create `NoType/Models/PolishingMode.swift` with the `PolishingMode` struct: `id: UUID`, `name: String`, `shortcut: Configuration.Shortcut`, `instruction: String`, `outputLanguage: String?`, `isBuiltin: Bool`, `createdAt: Date`; `Codable` + `Identifiable`; default memberwise init with `id = UUID()`, `createdAt = Date()`
+- [x] T002 [P] Extend `NoType/Config/Config.swift` (the `Configuration` struct) with `var showPreviewBeforeInjection: Bool` (default `false`) added to the init with a default value
+- [x] T003 [P] Extend `NoType/Config/ConfigLoader.swift` `buildUI` to parse `[ui].show_preview_before_injection` (default `false`, same pattern as `show_floating_bubble`) and thread it through `build`
+- [x] T004 [P] Extend `NoType/Persistence/ConfigStore.swift` `serialize` to write `show_preview_before_injection` under the `[ui]` section
 
 ---
 
@@ -39,14 +39,14 @@ description: "Task list for NoType V3 implementation"
 
 **⚠️ CRITICAL**: No user story integration can begin until this phase is complete.
 
-- [ ] T005 [P] Create `NoType/Persistence/ModeStore.swift` backed by `JSONFileStore<[PolishingMode]>` (`modes.json`): `load()` (seeds defaults if missing/corrupt), `allModes()`, `mode(forShortcut:)`, `mode(for:)`, `add(_:)` (uniqueness check), `update(id:name:shortcut:instruction:outputLanguage:)` (uniqueness vs others), `delete(id:)` (refuse last mode). Seed logic takes an optional legacy `Configuration.Shortcut` for the "Everyday polish" default (see [data-model.md](data-model.md) migration + [contracts/polish-modes.md](contracts/polish-modes.md) §2)
-- [ ] T006 [P] Add `NoTypeTests/ModeStoreTests.swift` (swift-testing): add/update/delete, shortcut-uniqueness conflict throws, delete-last refused, default seeding produces 3 modes with unique shortcuts, migration uses the supplied legacy shortcut for the everyday mode
-- [ ] T007 [P] Extend the existing `NoTypeTests/ConfigStoreTests.swift` with a `show_preview_before_injection` round-trip test and default-`false` when absent
-- [ ] T008 [P] Refactor `NoType/Input/GlobalShortcut.swift` to monitor a collection of `(modeID, Configuration.Shortcut)` bindings behind a single global monitor and fire `onPress(modeID:)` / `onRelease(modeID:)`; extract the modifier+key matching into pure `static` helpers so they are testable without events
-- [ ] T009 [P] Add `NoTypeTests/GlobalShortcutMatchingTests.swift` exercising the pure matching helpers: given a set of bindings and modifier flags + key, the correct mode id (or none) is selected; duplicate-shortcut bindings are rejected at registration
-- [ ] T010 [P] Extend `NoType/Transcription/PolishPrompt.swift` with `messages(for transcript:dictionaryHint:systemInstruction:outputLanguage:)` that uses the mode `systemInstruction` as the system message (folding `outputLanguage` and the dictionary hint); keep the existing `systemPrompt` constant as the built-in everyday instruction; an empty `systemInstruction` returns a user-only message (caller skips the LLM)
-- [ ] T011 [P] Extend `NoType/Transcription/LLMClient.swift` `polish` to accept `systemInstruction:` and `outputLanguage:` parameters threaded into `PolishPrompt.messages`; when `systemInstruction` is empty, short-circuit and return `PolishPrompt.normalize(transcript)` without a network call
-- [ ] T012 [P] Add `NoTypeTests/PolishPromptModeTests.swift`: mode instruction becomes the system message; `outputLanguage` is folded; dictionary hint is appended; empty instruction yields a user-only message; the everyday built-in instruction equals the V2 `systemPrompt`
+- [x] T005 [P] Create `NoType/Persistence/ModeStore.swift` backed by `JSONFileStore<[PolishingMode]>` (`modes.json`): `load()` (seeds defaults if missing/corrupt), `allModes()`, `mode(forShortcut:)`, `mode(for:)`, `add(_:)` (uniqueness check), `update(id:name:shortcut:instruction:outputLanguage:)` (uniqueness vs others), `delete(id:)` (refuse last mode). Seed logic takes an optional legacy `Configuration.Shortcut` for the "Everyday polish" default (see [data-model.md](data-model.md) migration + [contracts/polish-modes.md](contracts/polish-modes.md) §2)
+- [x] T006 [P] Add `NoTypeTests/ModeStoreTests.swift` (swift-testing): add/update/delete, shortcut-uniqueness conflict throws, delete-last refused, default seeding produces 3 modes with unique shortcuts, migration uses the supplied legacy shortcut for the everyday mode
+- [x] T007 [P] Extend the existing `NoTypeTests/ConfigStoreTests.swift` with a `show_preview_before_injection` round-trip test and default-`false` when absent
+- [x] T008 [P] Refactor `NoType/Input/GlobalShortcut.swift` to monitor a collection of `(modeID, Configuration.Shortcut)` bindings behind a single global monitor and fire `onPress(modeID:)` / `onRelease(modeID:)`; extract the modifier+key matching into pure `static` helpers so they are testable without events
+- [x] T009 [P] Add `NoTypeTests/GlobalShortcutMatchingTests.swift` exercising the pure matching helpers: given a set of bindings and modifier flags + key, the correct mode id (or none) is selected; duplicate-shortcut bindings are rejected at registration
+- [x] T010 [P] Extend `NoType/Transcription/PolishPrompt.swift` with `messages(for transcript:dictionaryHint:systemInstruction:outputLanguage:)` that uses the mode `systemInstruction` as the system message (folding `outputLanguage` and the dictionary hint); keep the existing `systemPrompt` constant as the built-in everyday instruction; an empty `systemInstruction` returns a user-only message (caller skips the LLM)
+- [x] T011 [P] Extend `NoType/Transcription/LLMClient.swift` `polish` to accept `systemInstruction:` and `outputLanguage:` parameters threaded into `PolishPrompt.messages`; when `systemInstruction` is empty, short-circuit and return `PolishPrompt.normalize(transcript)` without a network call
+- [x] T012 [P] Add `NoTypeTests/PolishPromptModeTests.swift`: mode instruction becomes the system message; `outputLanguage` is folded; dictionary hint is appended; empty instruction yields a user-only message; the everyday built-in instruction equals the V2 `systemPrompt`
 
 **Checkpoint**: Foundation ready — modes persist and round-trip, multi-shortcut matching is correct, and mode-aware prompts compose. No UI or controller integration yet.
 
@@ -60,11 +60,11 @@ description: "Task list for NoType V3 implementation"
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Integrate mode resolution + mode-aware polish into `NoType/App/DictationController.swift`: capture the selected `modeID` on press, resolve the mode from `ModeStore`, pass `mode.instruction`/`mode.outputLanguage` to `LLMClient.polish`; empty instruction uses raw transcript; LLM failure falls back to raw (V2 behavior); keep `session = nil` reset on success/failure (FR-016)
-- [ ] T014 [US1] Wire `ModeStore` + the multi-shortcut `GlobalShortcut` into `NoType/App/AppDelegate.swift` `startNormalFlow`: load/seed modes, register all mode shortcuts, forward `onPress(modeID:)`/`onRelease(modeID:)` to the controller
-- [ ] T015 [US1] Ensure `ModeStore.load()` seeding is invoked at launch in `NoType/App/AppDelegate.swift` and the legacy `Configuration.shortcut` is passed so the "Everyday polish" default reuses the V2 shortcut (FR-004, SC-005)
-- [ ] T016 [US1] Show the active mode name in the status bar while recording in `NoType/App/StatusBarController.swift` (extend `update(_:)` or add a mode-label API) so the independent test is visible
-- [ ] T017 [US1] Add `NoTypeTests/DictationControllerModeTests.swift`: with injectable ASR/LLM clients, the selected mode's instruction is forwarded; an empty-instruction mode yields the raw transcript with no LLM call; an LLM failure falls back to raw regardless of mode
+- [x] T013 [US1] Integrate mode resolution + mode-aware polish into `NoType/App/DictationController.swift`: capture the selected `modeID` on press, resolve the mode from `ModeStore`, pass `mode.instruction`/`mode.outputLanguage` to `LLMClient.polish`; empty instruction uses raw transcript; LLM failure falls back to raw (V2 behavior); keep `session = nil` reset on success/failure (FR-016)
+- [x] T014 [US1] Wire `ModeStore` + the multi-shortcut `GlobalShortcut` into `NoType/App/AppDelegate.swift` `startNormalFlow`: load/seed modes, register all mode shortcuts, forward `onPress(modeID:)`/`onRelease(modeID:)` to the controller
+- [x] T015 [US1] Ensure `ModeStore.load()` seeding is invoked at launch in `NoType/App/AppDelegate.swift` and the legacy `Configuration.shortcut` is passed so the "Everyday polish" default reuses the V2 shortcut (FR-004, SC-005)
+- [x] T016 [US1] Show the active mode name in the status bar while recording in `NoType/App/StatusBarController.swift` (extend `update(_:)` or add a mode-label API) so the independent test is visible
+- [x] T017 [US1] Add `NoTypeTests/DictationControllerModeTests.swift`: with injectable ASR/LLM clients, the selected mode's instruction is forwarded; an empty-instruction mode yields the raw transcript with no LLM call; an LLM failure falls back to raw regardless of mode
 
 **Checkpoint**: US1 fully functional — multiple shortcuts produce mode-appropriate output, V2 behavior preserved.
 
@@ -80,11 +80,11 @@ description: "Task list for NoType V3 implementation"
 
 ### Implementation for User Story 2
 
-- [ ] T018 [P] [US2] Create `NoType/Input/FrontmostApp.swift`: a value type capturing `NSWorkspace.shared.frontmostApplication` (processIdentifier + bundleIdentifier) and a `reactivate()` that brings it back via `NSRunningApplication.activate(options:)` with a best-effort short wait; returns whether reactivation succeeded
-- [ ] T019 [P] [US2] Create `NoType/UI/PreviewWindowController.swift` (`NSWindowController`, `@MainActor`): an editable multi-line `NSTextView` prefilled with the processed text, **Enter**/Confirm and **Esc**/Cancel handling, exposing `onConfirm: (String) -> Void` (edited text) and `onCancel: () -> Void`; only one instance live at a time
-- [ ] T020 [P] [US2] Add `NoTypeTests/PreviewWindowControllerTests.swift`: confirm without editing returns the processed text; confirm after editing returns the edited text; cancel invokes the cancel callback and injects nothing
-- [ ] T021 [US2] Integrate the preview gate into `NoType/App/DictationController.swift`: capture `FrontmostApp` at press; after polishing, if `Configuration.showPreviewBeforeInjection` show `PreviewWindowController`; on confirm, `reactivate()` the target app then inject the (edited) text and record history/stats; on cancel, discard and record nothing; keep the immediate-injection path when the toggle is off (FR-011)
-- [ ] T022 [US2] Add a "Preview before injection" checkbox to the UI group in `NoType/UI/SettingsWindowController.swift`, bound to `Configuration.showPreviewBeforeInjection` and persisted through the existing `onSave` (FR-012); ensure `AppDelegate` reloads the toggle into the active controller on save
+- [x] T018 [P] [US2] Create `NoType/Input/FrontmostApp.swift`: a value type capturing `NSWorkspace.shared.frontmostApplication` (processIdentifier + bundleIdentifier) and a `reactivate()` that brings it back via `NSRunningApplication.activate(options:)` with a best-effort short wait; returns whether reactivation succeeded
+- [x] T019 [P] [US2] Create `NoType/UI/PreviewWindowController.swift` (`NSWindowController`, `@MainActor`): an editable multi-line `NSTextView` prefilled with the processed text, **Enter**/Confirm and **Esc**/Cancel handling, exposing `onConfirm: (String) -> Void` (edited text) and `onCancel: () -> Void`; only one instance live at a time
+- [x] T020 [P] [US2] Add `NoTypeTests/PreviewWindowControllerTests.swift`: confirm without editing returns the processed text; confirm after editing returns the edited text; cancel invokes the cancel callback and injects nothing
+- [x] T021 [US2] Integrate the preview gate into `NoType/App/DictationController.swift`: capture `FrontmostApp` at press; after polishing, if `Configuration.showPreviewBeforeInjection` show `PreviewWindowController`; on confirm, `reactivate()` the target app then inject the (edited) text and record history/stats; on cancel, discard and record nothing; keep the immediate-injection path when the toggle is off (FR-011)
+- [x] T022 [US2] Add a "Preview before injection" checkbox to the UI group in `NoType/UI/SettingsWindowController.swift`, bound to `Configuration.showPreviewBeforeInjection` and persisted through the existing `onSave` (FR-012); ensure `AppDelegate` reloads the toggle into the active controller on save
 
 **Checkpoint**: US2 fully functional — preview appears, edits flow to the original target app, cancel discards, toggle off restores V2 instant injection.
 
@@ -98,10 +98,10 @@ description: "Task list for NoType V3 implementation"
 
 ### Implementation for User Story 3
 
-- [ ] T023 [P] [US3] Create `NoType/UI/ModeEditorView.swift` (`NSView`, `@MainActor`): reusable add/edit form with a name field, a shortcut capture (reuse `ShortcutEditorView`), a multi-line instruction `NSTextView`, an optional output-language field, and a built-in badge; exposes a `PolishingMode`-shaped result
-- [ ] T024 [US3] Add a "Polishing Modes" section (mode `NSTableView` + Add/Edit/Delete buttons) to `NoType/UI/SettingsWindowController.swift`, wired to `ModeStore`: validate non-empty name and unique shortcut (surfacing a clear conflict message, FR-006), refuse deleting the last mode
-- [ ] T025 [US3] Extend the Settings save path in `NoType/App/AppDelegate.swift` so that after mode add/edit/delete the `GlobalShortcut` monitor is rebuilt from the current `ModeStore` (extend `reloadShortcut` / the `onSave` callback to pass the updated store); changes are effective immediately (SC-007)
-- [ ] T026 [US3] Add `NoTypeTests/ModeEditorValidationTests.swift` (and/or extend `ModeStoreTests`): empty name rejected, duplicate shortcut rejected with a clear error, delete-last refused — covered at the logic layer the UI calls into
+- [x] T023 [P] [US3] Create `NoType/UI/ModeEditorView.swift` (`NSView`, `@MainActor`): reusable add/edit form with a name field, a shortcut capture (reuse `ShortcutEditorView`), a multi-line instruction `NSTextView`, an optional output-language field, and a built-in badge; exposes a `PolishingMode`-shaped result
+- [x] T024 [US3] Add a "Polishing Modes" section (mode `NSTableView` + Add/Edit/Delete buttons) to `NoType/UI/SettingsWindowController.swift`, wired to `ModeStore`: validate non-empty name and unique shortcut (surfacing a clear conflict message, FR-006), refuse deleting the last mode
+- [x] T025 [US3] Extend the Settings save path in `NoType/App/AppDelegate.swift` so that after mode add/edit/delete the `GlobalShortcut` monitor is rebuilt from the current `ModeStore` (extend `reloadShortcut` / the `onSave` callback to pass the updated store); changes are effective immediately (SC-007)
+- [x] T026 [US3] Add `NoTypeTests/ModeEditorValidationTests.swift` (and/or extend `ModeStoreTests`): empty name rejected, duplicate shortcut rejected with a clear error, delete-last refused — covered at the logic layer the UI calls into
 
 **Checkpoint**: US3 fully functional — modes are manageable, conflicts/guards enforced, edits live instantly.
 
@@ -111,11 +111,11 @@ description: "Task list for NoType V3 implementation"
 
 **Purpose**: Final integration, documentation, and validation across all stories.
 
-- [ ] T027 [P] Update `NoType/README.md` with V3 features (polishing modes + shortcuts, preview before injection) and the new `[ui].show_preview_before_injection` config key
-- [ ] T028 Run every validation scenario in [quickstart.md](quickstart.md): migration, multi-mode, preview (edit/cancel), toggle off, mode management (add/edit/delete/conflict/last-guard), V2 regression
-- [ ] T029 [P] Add an end-to-end smoke test for the V3 flow in `NoTypeTests/` (mode selection drives the instruction; preview-confirm path injects the edited text into the captured target)
-- [ ] T030 [P] Review shared-file changes for cross-story consistency (`DictationController.swift`, `AppDelegate.swift`, `SettingsWindowController.swift`) and remove the now-dead V2 single-shortcut code path where it is safe to do so
-- [ ] T031 Run `swift build` and `swift test` to green; verify no `.build` artifacts are committed
+- [x] T027 [P] Update `NoType/README.md` with V3 features (polishing modes + shortcuts, preview before injection) and the new `[ui].show_preview_before_injection` config key
+- [x] T028 Run every validation scenario in [quickstart.md](quickstart.md): migration, multi-mode, preview (edit/cancel), toggle off, mode management (add/edit/delete/conflict/last-guard), V2 regression
+- [x] T029 [P] Add an end-to-end smoke test for the V3 flow in `NoTypeTests/` (mode selection drives the instruction; preview-confirm path injects the edited text into the captured target)
+- [x] T030 [P] Review shared-file changes for cross-story consistency (`DictationController.swift`, `AppDelegate.swift`, `SettingsWindowController.swift`) and remove the now-dead V2 single-shortcut code path where it is safe to do so
+- [x] T031 Run `swift build` and `swift test` to green; verify no `.build` artifacts are committed
 
 ---
 
