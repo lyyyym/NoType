@@ -2,7 +2,7 @@ import AppKit
 import Foundation
 
 /// Orchestrates the dictation flow:
-/// shortcut press → record → ASR → LLM polish (fallback to raw) → inject.
+/// shortcut press → record → ASR → LLM polish (mode-aware; fallback to raw) → inject.
 ///
 /// Runs on the main actor because it drives AppKit/AVFoundation/CGEvent.
 @MainActor
@@ -14,16 +14,22 @@ final class DictationController {
     private let asr: ASRClient
     private let llm: LLMClient
     private let injector: KeyboardInjector
-    private let status: StatusBarController
+    private let status: any DictationStatusReporting
     private let history: HistoryStore
     private let stats: StatsStore
     private let dictionary: DictionaryStore
+    private let modes: ModeStore
     private let bubble: FloatingBubbleWindow?
+    private let previewController: PreviewWindowController?
 
     private var session: RecordingSession?
+    /// The mode selected by the most recent shortcut press; drives polishing.
+    private var selectedMode: PolishingMode?
+    /// The app that was frontmost when recording started; re-activated on preview confirm.
+    private var targetApp: FrontmostApp?
 
     init(config: Configuration,
-         status: StatusBarController,
+         status: any DictationStatusReporting,
          buffer: AudioBuffer = AudioBuffer(),
          recorder: AudioRecorder? = nil,
          asr: ASRClient? = nil,
@@ -32,7 +38,9 @@ final class DictationController {
          history: HistoryStore? = nil,
          stats: StatsStore? = nil,
          dictionary: DictionaryStore? = nil,
-         bubble: FloatingBubbleWindow? = nil) {
+         modes: ModeStore? = nil,
+         bubble: FloatingBubbleWindow? = nil,
+         preview: PreviewWindowController? = nil) {
         self.config = config
         self.status = status
         self.buffer = buffer
@@ -43,7 +51,15 @@ final class DictationController {
         self.history = history ?? HistoryStore()
         self.stats = stats ?? StatsStore()
         self.dictionary = dictionary ?? DictionaryStore()
+        if let modes = modes {
+            self.modes = modes
+        } else {
+            let store = ModeStore()
+            store.load(legacyEverydayShortcut: config.shortcut)
+            self.modes = store
+        }
         self.bubble = bubble ?? (config.showFloatingBubble ? FloatingBubbleWindow() : nil)
+        self.previewController = preview ?? (config.showPreviewBeforeInjection ? PreviewWindowController() : nil)
 
         self.recorder.onFailure = { [weak self] detail in
             Task { @MainActor in self?.fail(with: detail) }
@@ -52,11 +68,18 @@ final class DictationController {
 
     // MARK: - Shortcut callbacks
 
-    func didPressShortcut() {
+    func didPressShortcut(modeID: UUID) {
+        guard let mode = modes.mode(for: modeID) else {
+            fail(with: "No mode found for this shortcut.")
+            return
+        }
+        selectedMode = mode
+        // Capture the target app before anything (e.g. a preview panel) takes focus.
+        targetApp = FrontmostApp.current
         startRecording()
     }
 
-    func didReleaseShortcut() {
+    func didReleaseShortcut(modeID: UUID) {
         stopAndProcess()
     }
 
@@ -67,7 +90,7 @@ final class DictationController {
         let newSession = RecordingSession(status: .idle)
         _ = newSession.transition(to: .recording)
         session = newSession
-        status.update(.recording)
+        status.update(.recording, modeName: selectedMode?.name)
         bubble?.show(position: config.bubblePosition)
 
         do {
@@ -82,7 +105,7 @@ final class DictationController {
         bubble?.hide()
         guard let session = session, session.status == .recording else { return }
         _ = session.transition(to: .processing)
-        status.update(.processing)
+        status.update(.processing, modeName: nil)
 
         // Capture the buffer once, then free it immediately (FR-012).
         let wav = buffer.wavData()
@@ -94,18 +117,20 @@ final class DictationController {
             return
         }
 
+        let mode = selectedMode
         Task { [weak self, asr, llm, injector, status] in
             guard let self = self else { return }
-            await self.process(wav: wav, session: session, asr: asr, llm: llm, injector: injector, status: status)
+            await self.process(wav: wav, session: session, mode: mode, asr: asr, llm: llm, injector: injector, status: status)
         }
     }
 
     private func process(wav: Data,
                          session: RecordingSession,
+                         mode: PolishingMode?,
                          asr: ASRClient,
                          llm: LLMClient,
                          injector: KeyboardInjector,
-                         status: StatusBarController) async {
+                         status: any DictationStatusReporting) async {
         // 1. ASR
         let rawText: String
         do {
@@ -116,32 +141,75 @@ final class DictationController {
         }
         session.setRawTranscription(rawText)
 
-        // 2. LLM polish, fall back to raw text on failure (FR-013).
+        // 2. LLM polish using the selected mode's instruction (fall back to raw on failure).
         var finalText = rawText
-        var usedFallback = false
         let dictionaryHint = dictionary.promptHint()
+        let instruction = mode?.instruction ?? ""
+        let outputLanguage = mode?.outputLanguage
         do {
-            finalText = try await llm.polish(transcript: rawText, dictionaryHint: dictionaryHint)
+            finalText = try await llm.polish(transcript: rawText,
+                                             dictionaryHint: dictionaryHint,
+                                             systemInstruction: instruction,
+                                             outputLanguage: outputLanguage)
         } catch {
-            usedFallback = true
             finalText = PolishPrompt.normalize(rawText)
         }
         session.setPolishedText(finalText)
 
-        // 3. Inject at the cursor.
+        // 3. Inject (optionally via an editable preview first).
+        if config.showPreviewBeforeInjection, let preview = previewController {
+            presentPreview(text: finalText, mode: mode, rawText: rawText, session: session, preview: preview)
+        } else {
+            injectAndRecord(rawText: rawText, finalText: finalText, session: session)
+        }
+    }
+
+    /// Shows the editable preview; on confirm re-activates the target app and injects,
+    /// on cancel discards without injecting or recording.
+    private func presentPreview(text: String,
+                                mode: PolishingMode?,
+                                rawText: String,
+                                session: RecordingSession,
+                                preview: PreviewWindowController) {
+        preview.onConfirm = { [weak self] edited in
+            Task { @MainActor in
+                guard let self = self else { return }
+                self.targetApp?.reactivate()
+                self.injectAndRecord(rawText: rawText, finalText: edited, session: session)
+            }
+        }
+        preview.onCancel = { [weak self] in
+            Task { @MainActor in
+                guard let self = self else { return }
+                print("[NoType] preview cancelled")
+                self.resetSession()
+                self.status.update(.idle, modeName: nil)
+            }
+        }
+        preview.present(text: text, modeName: mode?.name)
+    }
+
+    /// Injects `finalText`, records history + stats, and resets the session.
+    private func injectAndRecord(rawText: String, finalText: String, session: RecordingSession) {
         do {
             try injector.inject(text: finalText)
-            _ = session.transition(to: usedFallback ? .insertedRaw : .inserted)
-            status.update(.success)
-
-            // Record history and stats for the successful injection.
+            _ = session.transition(to: .inserted)
+            status.update(.success, modeName: nil)
             let entry = RecordingEntry(rawText: rawText, polishedText: finalText)
             history.append(entry)
             stats.record(words: entry.wordCount)
-            self.session = nil
         } catch {
             self.fail(with: error.localizedDescription)
+            return
         }
+        resetSession()
+    }
+
+    /// Clears the per-recording state so the shortcut can be reused (FR-016).
+    private func resetSession() {
+        session = nil
+        selectedMode = nil
+        targetApp = nil
     }
 
     private func fail(with detail: String) {
@@ -149,9 +217,9 @@ final class DictationController {
         bubble?.hide()
         session?.setError(detail)
         _ = session?.transition(to: .failed)
-        status.update(.error)
+        status.update(.error, modeName: nil)
         status.showError(detail)
         recorder.stop()
-        session = nil
+        resetSession()
     }
 }

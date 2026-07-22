@@ -78,6 +78,12 @@ class KeyboardInjector {
     /// Injects `text` into the frontmost application.
     /// Must be called on the main thread.
     /// - Throws: `InjectionError` if Accessibility permission is missing or posting fails.
+    ///
+    /// Both ASCII and non-ASCII characters are injected as a Unicode string via
+    /// `keyboardSetUnicodeString`, which types the literal character regardless of the
+    /// active keyboard layout and held modifiers. (The previous ASCII path posted each
+    /// character's ASCII value as the CGEvent `virtualKey`, which is a hardware keycode —
+    /// not ASCII — and produced garbled output for Latin text.)
     func inject(text: String) throws {
         assert(Thread.isMainThread, "KeyboardInjector.inject must run on the main thread")
         guard Self.isTrusted(prompt: false) else {
@@ -85,27 +91,20 @@ class KeyboardInjector {
         }
         let source = CGEventSource(stateID: .hidSystemState)
         for segment in Self.segments(for: text) {
+            let run: String
             switch segment {
-            case .ascii(let ascii):
-                for char in ascii {
-                    guard let scalar = char.asciiValue else { continue }
-                    let key = UInt16(scalar)
-                    let keyDown = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: true)
-                    keyDown?.post(tap: .cghidEventTap)
-                    let keyUp = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: false)
-                    keyUp?.post(tap: .cghidEventTap)
-                }
-            case .unicode(let run):
-                // `keyboardSetUnicodeString` historically accepts at most ~20 UTF-16
-                // units per event; chunk long runs (e.g. CJK paragraphs) to be safe.
-                for chunk in Self.utf16Chunks(run, max: 20) {
-                    var codes = Array(chunk.utf16)
-                    let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true)
-                    keyDown?.keyboardSetUnicodeString(stringLength: codes.count, unicodeString: &codes)
-                    keyDown?.post(tap: .cghidEventTap)
-                    let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
-                    keyUp?.post(tap: .cghidEventTap)
-                }
+            case .ascii(let value): run = value
+            case .unicode(let value): run = value
+            }
+            // `keyboardSetUnicodeString` historically accepts at most ~20 UTF-16
+            // units per event; chunk long runs (e.g. CJK paragraphs) to be safe.
+            for chunk in Self.utf16Chunks(run, max: 20) {
+                var codes = Array(chunk.utf16)
+                let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true)
+                keyDown?.keyboardSetUnicodeString(stringLength: codes.count, unicodeString: &codes)
+                keyDown?.post(tap: .cghidEventTap)
+                let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
+                keyUp?.post(tap: .cghidEventTap)
             }
         }
     }

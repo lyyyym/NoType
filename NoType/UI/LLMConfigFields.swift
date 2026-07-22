@@ -28,21 +28,12 @@ final class LLMConfigFields {
         modelField.stringValue = configuration.model
         temperatureField.stringValue = String(configuration.temperature)
         maxTokensField.stringValue = String(configuration.maxTokens)
-        let stack = NSStackView(views: [
-            NSTextField(labelWithString: "LLM base URL:"),
-            baseURLField,
-            NSTextField(labelWithString: "LLM API key:"),
-            apiKeyField,
-            NSTextField(labelWithString: "LLM model:"),
-            modelField,
-            NSTextField(labelWithString: "Temperature (0.0–2.0):"),
-            temperatureField,
-            NSTextField(labelWithString: "Max tokens:"),
-            maxTokensField
+        view = SettingsUI.rowsStack([
+            SettingsUI.row(label: "Base URL", field: baseURLField),
+            SettingsUI.row(label: "API key", field: apiKeyField),
+            SettingsUI.row(label: "Model", field: modelField),
+            SettingsUI.row(label: "Temperature", field: temperatureField),
+            SettingsUI.row(label: "Max tokens", field: maxTokensField)
         ])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 4
-        view = stack
     }
 }

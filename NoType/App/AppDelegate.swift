@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let historyStore = HistoryStore()
     private let statsStore = StatsStore()
     private let dictionaryStore = DictionaryStore()
+    private let modeStore = ModeStore()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         print("[AppDelegate] applicationDidFinishLaunching")
@@ -76,6 +77,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func startNormalFlow(config: Configuration) {
         print("[AppDelegate] starting normal flow")
+        // 0. Load/seed polishing modes (migrates the legacy shortcut into the
+        //    "Everyday polish" default on first launch).
+        modeStore.load(legacyEverydayShortcut: config.shortcut)
+
         // 1. Set up the menu-bar UI.
         let status = StatusBarController()
         status.onOpenSettings = { [weak self] in self?.openSettings() }
@@ -84,26 +89,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         status.onOpenStats = { [weak self] in self?.openStats() }
         self.statusBar = status
 
-        // 2. Wire the dictation pipeline.
+        // 2. Wire the dictation pipeline (mode-aware).
         let controller = DictationController(
             config: config,
             status: status,
             history: historyStore,
             stats: statsStore,
-            dictionary: dictionaryStore
+            dictionary: dictionaryStore,
+            modes: modeStore
         )
         self.dictation = controller
 
-        // 3. Register the global shortcut.
-        let monitor = GlobalShortcut(configuration: config.shortcut)
-        monitor.onPress = { [weak controller] in
-            print("[App] shortcut pressed")
-            Task { @MainActor in controller?.didPressShortcut() }
-        }
-        monitor.onRelease = { [weak controller] in
-            print("[App] shortcut released")
-            Task { @MainActor in controller?.didReleaseShortcut() }
-        }
+        // 3. Register one global shortcut per mode.
+        let monitor = makeShortcutMonitor(controller: controller)
         if !monitor.start() {
             status.showError("NoType needs Accessibility permission to listen for global shortcuts. Use the menu to request it.")
         }
@@ -119,40 +117,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func openSettings() {
         guard let config = configuration else { return }
-        let controller = SettingsWindowController(configuration: config)
+        let controller = SettingsWindowController(configuration: config, modeStore: modeStore)
         controller.onSave = { [weak self] updated in
             self?.configuration = updated
             self?.reloadShortcut(configuration: updated)
+        }
+        controller.onModesChanged = { [weak self] in
+            // Modes changed in-place on the shared store; just rebuild the shortcut monitor.
+            self?.rebuildShortcutsOnly()
         }
         self.settingsWindow = controller
         controller.showWindow(nil)
     }
 
-    private func reloadShortcut(configuration: Configuration) {
-        shortcut?.stop()
-        let monitor = GlobalShortcut(configuration: configuration.shortcut)
+    /// Rebuilds the shortcut monitor from the current modes without recreating the
+    /// dictation controller (used after add/edit/delete of a mode).
+    private func rebuildShortcutsOnly() {
         guard let controller = dictation else { return }
-        monitor.onPress = { [weak controller] in
-            print("[App] shortcut pressed")
-            Task { @MainActor in controller?.didPressShortcut() }
-        }
-        monitor.onRelease = { [weak controller] in
-            print("[App] shortcut released")
-            Task { @MainActor in controller?.didReleaseShortcut() }
-        }
+        let monitor = makeShortcutMonitor(controller: controller)
         _ = monitor.start()
         self.shortcut = monitor
+    }
 
-        // Re-create dictation controller so it picks up new ASR/LLM config.
-        if let status = statusBar {
-            self.dictation = DictationController(
-                config: configuration,
-                status: status,
-                history: historyStore,
-                stats: statsStore,
-                dictionary: dictionaryStore
-            )
+    /// Rebuilds the shortcut monitor (from the current modes) and the dictation
+    /// controller (to pick up new ASR/LLM config), called after Settings is saved.
+    private func reloadShortcut(configuration: Configuration) {
+        guard let status = statusBar else { return }
+        // Re-create the dictation controller with the fresh config + shared mode store.
+        let controller = DictationController(
+            config: configuration,
+            status: status,
+            history: historyStore,
+            stats: statsStore,
+            dictionary: dictionaryStore,
+            modes: modeStore
+        )
+        self.dictation = controller
+
+        let monitor = makeShortcutMonitor(controller: controller)
+        _ = monitor.start()
+        self.shortcut = monitor
+    }
+
+    // MARK: - Shortcut wiring
+
+    /// Builds a monitor bound to every current mode's shortcut, forwarding
+    /// press/release (with the matched mode id) to the controller.
+    private func makeShortcutMonitor(controller: DictationController) -> GlobalShortcut {
+        let bindings = modeStore.allModes().map { mode in
+            GlobalShortcut.Binding(modeID: mode.id, shortcut: mode.shortcut)
         }
+        let monitor = GlobalShortcut(bindings: bindings)
+        monitor.onPress = { [weak controller] modeID in
+            print("[App] shortcut pressed (mode \(modeID))")
+            Task { @MainActor in controller?.didPressShortcut(modeID: modeID) }
+        }
+        monitor.onRelease = { [weak controller] modeID in
+            print("[App] shortcut released")
+            Task { @MainActor in controller?.didReleaseShortcut(modeID: modeID) }
+        }
+        return monitor
     }
 
     private func openHistory() {

@@ -30,8 +30,21 @@ class LLMClient {
     }
 
     /// Sends the transcript for polishing and returns the polished text.
+    /// - Parameters:
+    ///   - systemInstruction: the mode's polishing instruction used as the system
+    ///     message. When empty, the LLM is skipped and the normalized raw transcript
+    ///     is returned (plain dictation).
+    ///   - outputLanguage: optional target output language folded into the system message.
     /// - Throws: `TranscriptionError.llmFailed` on network or HTTP failure.
-    func polish(transcript: String, dictionaryHint: String = "") async throws -> String {
+    func polish(transcript: String,
+                dictionaryHint: String = "",
+                systemInstruction: String = PolishPrompt.systemPrompt,
+                outputLanguage: String? = nil) async throws -> String {
+        // Plain-dictation mode: no instruction means no LLM call.
+        if systemInstruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return PolishPrompt.normalize(transcript)
+        }
+
         let url = try endpointURL()
         var request = URLRequest(url: url, timeoutInterval: timeout)
         request.httpMethod = "POST"
@@ -40,7 +53,10 @@ class LLMClient {
 
         let body = try Self.requestBody(
             model: config.model,
-            messages: PolishPrompt.messages(for: transcript, dictionaryHint: dictionaryHint),
+            messages: PolishPrompt.messages(for: transcript,
+                                            dictionaryHint: dictionaryHint,
+                                            systemInstruction: systemInstruction,
+                                            outputLanguage: outputLanguage),
             temperature: config.temperature,
             maxTokens: config.maxTokens
         )

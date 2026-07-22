@@ -45,4 +45,39 @@ struct ConfigStoreTests {
         #expect(config.showFloatingBubble == true)
         #expect(config.bubblePosition == .cursor)
     }
+
+    @Test func previewToggleRoundTrips() throws {
+        let original = Configuration(
+            shortcut: .default,
+            asr: .init(baseURL: "https://asr.test/v1", apiKey: "k", model: "m"),
+            llm: .init(baseURL: "https://llm.test/v1", apiKey: "k", model: "m", temperature: 0.0, maxTokens: 1024),
+            showFloatingBubble: true,
+            bubblePosition: .cursor,
+            showPreviewBeforeInjection: true
+        )
+        let text = ConfigStore.serialize(original)
+        #expect(text.contains("show_preview_before_injection = true"))
+        let parsed = try ConfigLoader.parse(text)
+        #expect(parsed.showPreviewBeforeInjection == true)
+    }
+
+    @Test func previewToggleDefaultsFalseWhenAbsent() throws {
+        let text = """
+        [shortcut]
+        key = "."
+        modifiers = ["command"]
+
+        [asr]
+        base_url = "https://asr.test/v1"
+        api_key = "key"
+        model = "model"
+
+        [llm]
+        base_url = "https://llm.test/v1"
+        api_key = "key"
+        model = "model"
+        """
+        let config = try ConfigLoader.parse(text)
+        #expect(config.showPreviewBeforeInjection == false)
+    }
 }

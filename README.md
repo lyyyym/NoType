@@ -1,13 +1,16 @@
 # NoType
 
-NoType V2: a configurable daily voice input tool for macOS.
+NoType V3: a multi-mode voice input tool for macOS.
 
-Hold a global shortcut (default `Command + .`), speak, release, and the polished text is inserted at the current cursor position via simulated keyboard input.
+Hold a global shortcut, speak, release, and the polished text is inserted at the current cursor position via simulated keyboard input. Each polishing mode has its own shortcut and its own style/language guidance, and you can optionally review the result in an editable preview before it is typed.
 
-## V2 Features
+## V3 Features
 
+- **Polishing modes**: several modes, each bound to its own global shortcut with its own polishing instruction and target output language (e.g. everyday polish, translate-to-English, formal/email). Ships with three built-in defaults.
+- **Mode management**: create, edit, and delete modes and assign shortcuts from the Settings window, with conflict and keep-at-least-one guards.
+- **Preview before injection** *(optional, off by default)*: after polishing, an editable preview window lets you confirm, edit, or cancel before the text is typed. On confirm, NoType returns focus to the app you were typing in.
 - **First-launch onboarding**: guided setup for microphone permission, accessibility permission, and basic ASR/LLM configuration.
-- **Settings window**: edit shortcut, ASR/LLM endpoints, API keys, and UI preferences without touching the TOML file.
+- **Settings window**: edit ASR/LLM endpoints, API keys, modes, and UI preferences without touching the TOML file.
 - **Recording history**: keep the last 50 successful voice inputs locally; copy or delete entries.
 - **Word count statistics**: daily and cumulative word counts from injected text.
 - **Personal dictionary**: manually manage custom terms; entries are used as hints during LLM polish.
@@ -37,6 +40,8 @@ Create `~/.config/notype/config.toml`:
 
 ```toml
 [shortcut]
+# Legacy in V3 — read only on first launch to seed the "Everyday polish" mode's
+# shortcut. Active shortcuts come from modes managed in Settings (modes.json).
 key = "."
 modifiers = ["command"]
 
@@ -55,9 +60,10 @@ max_tokens = 4096
 [ui]
 show_floating_bubble = true
 bubble_position = "cursor"
+show_preview_before_injection = false   # V3: show an editable preview before injecting
 ```
 
-Settings changed in the Settings window are saved to the same file and take effect immediately.
+Modes are stored as JSON in `~/Library/Application Support/NoType/modes.json` and managed from Settings → Polishing Modes. Settings changed in the Settings window are saved to the TOML file and take effect immediately.
 
 > **Note on TOML parsing:** The plan called for the `TOMLKit` package. To keep the build self-contained, a focused TOML reader is included in `Config/ConfigLoader.swift`. It supports the fixed config schema and can be replaced with `TOMLKit` later without touching `Configuration`.
 
@@ -68,7 +74,7 @@ Settings changed in the Settings window are saved to the same file and take effe
 
 ## Validation
 
-See [`specs/002-configurable-voice-tool/quickstart.md`](specs/002-configurable-voice-tool/quickstart.md) for end-to-end validation scenarios.
+See [`specs/003-modes-and-preview/quickstart.md`](specs/003-modes-and-preview/quickstart.md) for end-to-end validation scenarios.
 
 ## Project Structure
 

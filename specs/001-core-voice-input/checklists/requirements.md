@@ -1,8 +1,8 @@
-# Specification Quality Checklist: NoType V2 - Configurable Daily Tool
+# Specification Quality Checklist: NoType V1 Core Voice Input
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-07-21
-**Feature**: [spec.md](spec.md)
+**Feature**: [specs/001-core-voice-input/spec.md](spec.md)
 
 ## Content Quality
 
@@ -31,5 +31,12 @@
 
 ## Notes
 
-- Specification is complete and ready for `/speckit-clarify` or `/speckit-plan`.
-- All checklist items passed on first review.
+- **Validation iteration 7**: All checklist items pass. Clarifications resolved:
+  - Default global shortcut: `Command + .`
+  - Audio retention: discard immediately after transcription (no local retention)
+  - Config location: `~/.config/notype/config.toml`, API credentials in plaintext
+  - LLM fallback: insert raw ASR text when LLM polishing fails
+  - Max recording duration: 60 seconds, auto-stop and proceed
+  - Recording feedback: macOS menu bar icon state changes + completion signal
+  - Config reload: read at startup, restart required for changes
+- Specification is ready for `/speckit-clarify` or `/speckit-plan`.
