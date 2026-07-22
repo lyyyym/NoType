@@ -4,7 +4,9 @@ import Foundation
 /// Records microphone audio into an `AudioBuffer` using `AVAudioEngine`.
 ///
 /// Captures 16-bit PCM, 16 kHz, mono. See `research.md` §3.
-final class AudioRecorder {
+/// Non-final so tests can substitute a no-op recorder (same pattern as the
+/// network clients and keyboard injector).
+class AudioRecorder {
 
     /// Called with an error description when recording cannot start or fails.
     var onFailure: ((String) -> Void)?

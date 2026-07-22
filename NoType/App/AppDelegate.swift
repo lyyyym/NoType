@@ -172,9 +172,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             print("[App] shortcut pressed (mode \(modeID))")
             Task { @MainActor in controller?.didPressShortcut(modeID: modeID) }
         }
-        monitor.onRelease = { [weak controller] _ in
+        monitor.onRelease = { [weak controller] modeID in
             print("[App] shortcut released")
-            Task { @MainActor in controller?.didReleaseShortcut(modeID: UUID()) }
+            Task { @MainActor in controller?.didReleaseShortcut(modeID: modeID) }
         }
         return monitor
     }

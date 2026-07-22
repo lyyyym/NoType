@@ -14,7 +14,7 @@ final class DictationController {
     private let asr: ASRClient
     private let llm: LLMClient
     private let injector: KeyboardInjector
-    private let status: StatusBarController
+    private let status: any DictationStatusReporting
     private let history: HistoryStore
     private let stats: StatsStore
     private let dictionary: DictionaryStore
@@ -29,7 +29,7 @@ final class DictationController {
     private var targetApp: FrontmostApp?
 
     init(config: Configuration,
-         status: StatusBarController,
+         status: any DictationStatusReporting,
          buffer: AudioBuffer = AudioBuffer(),
          recorder: AudioRecorder? = nil,
          asr: ASRClient? = nil,
@@ -105,7 +105,7 @@ final class DictationController {
         bubble?.hide()
         guard let session = session, session.status == .recording else { return }
         _ = session.transition(to: .processing)
-        status.update(.processing)
+        status.update(.processing, modeName: nil)
 
         // Capture the buffer once, then free it immediately (FR-012).
         let wav = buffer.wavData()
@@ -130,7 +130,7 @@ final class DictationController {
                          asr: ASRClient,
                          llm: LLMClient,
                          injector: KeyboardInjector,
-                         status: StatusBarController) async {
+                         status: any DictationStatusReporting) async {
         // 1. ASR
         let rawText: String
         do {
@@ -183,7 +183,7 @@ final class DictationController {
                 guard let self = self else { return }
                 print("[NoType] preview cancelled")
                 self.resetSession()
-                self.status.update(.idle)
+                self.status.update(.idle, modeName: nil)
             }
         }
         preview.present(text: text, modeName: mode?.name)
@@ -194,7 +194,7 @@ final class DictationController {
         do {
             try injector.inject(text: finalText)
             _ = session.transition(to: .inserted)
-            status.update(.success)
+            status.update(.success, modeName: nil)
             let entry = RecordingEntry(rawText: rawText, polishedText: finalText)
             history.append(entry)
             stats.record(words: entry.wordCount)
@@ -217,7 +217,7 @@ final class DictationController {
         bubble?.hide()
         session?.setError(detail)
         _ = session?.transition(to: .failed)
-        status.update(.error)
+        status.update(.error, modeName: nil)
         status.showError(detail)
         recorder.stop()
         resetSession()

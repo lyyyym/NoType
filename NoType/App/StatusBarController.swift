@@ -1,9 +1,16 @@
 import AppKit
 
+/// Minimal status-reporting surface used by `DictationController`, so the controller
+/// can be tested without creating a real menu-bar status item.
+protocol DictationStatusReporting: AnyObject {
+    func update(_ state: StatusBarController.State, modeName: String?)
+    func showError(_ message: String)
+}
+
 /// Manages the macOS menu-bar status item and its menu.
 ///
 /// See `contracts` and `spec.md` User Story 3.
-final class StatusBarController {
+final class StatusBarController: DictationStatusReporting {
 
     private let statusItem: NSStatusItem
     private var state: State = .idle
