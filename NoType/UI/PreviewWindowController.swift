@@ -19,16 +19,28 @@ final class PreviewWindowController: NSWindowController {
     private let textView: NSTextView
 
     init() {
-        let textView = NSTextView()
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 440, height: 160))
         textView.isEditable = true
         textView.isSelectable = true
-        textView.drawsBackground = false
+        textView.drawsBackground = true
+        textView.backgroundColor = .textBackgroundColor
+        textView.textColor = .textColor
         textView.font = .systemFont(ofSize: 14)
         textView.isRichText = false
+        // Required for a text view hosted in a scroll view: wrap to the visible width,
+        // grow vertically, and let the scroll view manage its frame.
+        textView.isHorizontallyResizable = false
+        textView.isVerticallyResizable = true
+        textView.autoresizingMask = [.width]
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.heightTracksTextView = false
+        textView.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
+        textView.textContainerInset = NSSize(width: 4, height: 4)
+        textView.minSize = NSSize(width: 0, height: 160)
         self.textView = textView
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 240),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 260),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
